@@ -1,90 +1,90 @@
 /**
  * Save your Brevo API key into .env through a HIDDEN terminal input.
  *
- *   node scripts/configure-email-key.mjs
+ *   node scripts/configure-email-key.mjs [env-file]   # env-file is optional
  *
- * The key is never echoed, logged, or printed — input is captured from the
- * terminal with echo suppressed and only confirmed by length. The script
- * rewrites ONLY the BREVO_API_KEY line in .env, preserving every other
- * variable exactly as they are. The key is validated against Brevo's
- * account endpoint; the validation prints an OK/failed status only.
+ * - The key is never echoed, logged, or printed (raw-mode capture, echo off).
+ * - Validation calls Brevo's official account endpoint and prints only an
+ *   OK/failed status.
+ * - Only the BREVO_API_KEY line is rewritten; every other .env variable is
+ *   preserved exactly. Nothing is written if the key is rejected or cancelled.
  */
-import { createInterface } from 'node:readline'
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const envPath = path.resolve(__dirname, '..', '.env')
+const envPath = path.resolve(
+  process.argv[2] ?? path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.env'),
+)
 
-const readline = createInterface({ input: process.stdin, terminal: true })
-// cross-platform hidden input: mute the stream while capturing characters
-const { stdin, stdout } = process
-
-let current = ''
-
-stdin.setRawMode?.(true)
-stdout.write('Paste your Brevo API key (input is hidden): ')
-
-function cleanup() {
-  stdin.setRawMode?.(false)
-  stdin.pause()
-  readline.close()
-}
-
-stdin.on('data', (chunk) => {
-  for (const char of chunk.toString('utf8')) {
-    if (char === '\r' || char === '\n') {
-      stdout.write('\n')
-      cleanup()
-      handle(current.trim())
+const askHidden = () =>
+  new Promise((resolve, reject) => {
+    const { stdin, stdout } = process
+    if (!stdin.isTTY) {
+      reject(new Error('This script needs an interactive terminal (run it directly in your shell).'))
       return
     }
-    if (char === '\u0003') {
-      // Ctrl+C
-      stdout.write('\nCancelled — nothing was written.\n')
-      cleanup()
-      process.exit(130)
+
+    let value = ''
+    let settled = false
+    const finish = (result) => {
+      if (settled) return
+      settled = true
+      stdin.setRawMode(false)
+      stdin.resume()
+      stdin.off('data', onData)
+      stdout.write('\n')
+      resolve(result)
     }
-    if (char === '\u007f' || char === '\b') {
-      current = current.slice(0, -1)
-      continue
-    }
-    current += char
-  }
-})
-
-function handle(key) {
-  if (!key || key.length < 20) {
-    console.error('No key entered (or it looks too short) — nothing was written.')
-    process.exit(1)
-  }
-
-  console.log(`Key accepted (length ${key.length}). Validating with Brevo...`)
-
-  fetch('https://api.brevo.com/v3/account', { headers: { 'api-key': key, accept: 'application/json' } })
-    .then((response) => {
-      if (response.ok) {
-        console.log('Brevo accepted the key ✓  (details not shown for privacy)')
-      } else if (response.status === 401) {
-        console.error('Brevo rejected the key (401 invalid). It was NOT saved.')
-        process.exit(1)
-      } else {
-        console.warn(`Brevo answered with status ${response.status} — key saved anyway; /api/contact will report issues if any.`)
+    const onData = (chunk) => {
+      for (const char of chunk.toString('utf8')) {
+        if (char === '\r' || char === '\n') return finish(value)
+        if (char === '\u0003') return finish(null) // Ctrl+C
+        if (char === '\u007f' || char === '\b') {
+          value = value.slice(0, -1)
+          continue
+        }
+        value += char
       }
+    }
+    stdin.setRawMode(true)
+    stdin.resume()
+    stdin.on('data', onData)
+    stdout.write('Paste your Brevo API key (input is hidden, Enter to confirm): ')
+  })
+
+const validateWithBrevo = async (key) => {
+  // Official account endpoint — the exact same key your API key will use.
+  let status = 0
+  try {
+    const response = await fetch('https://api.brevo.com/v3/account', {
+      headers: { 'api-key': key, accept: 'application/json' },
     })
-    .catch((error) => {
-      console.warn(`Could not reach Brevo (${error.message}) — key saved without validation.`)
-    })
-    .finally(() => saveEnv(key))
+    status = response.status
+  } catch (error) {
+    // Network failure: do not print exception details (they can embed nothing
+    // sensitive, but status-only reporting keeps the convention uniform).
+    console.warn('Could not reach Brevo to validate the key.')
+    return 'network-error'
+  }
+  if (status === 200) {
+    console.log('Brevo accepted the key ✓  (details hidden for privacy)')
+    return 'ok'
+  }
+  if (status === 401) {
+    console.error('Brevo rejected this key (401 invalid). Nothing was saved.')
+    return 'invalid'
+  }
+  console.warn(`Brevo answered with status ${status} — treating as unverifiable.`)
+  return `status-${status}`
 }
 
 function saveEnv(key) {
   const line = `BREVO_API_KEY=${key}`
   let content = ''
-  if (existsSync(envPath)) content = readFileSync(envPath, 'utf8')
+  if (fs.existsSync(envPath)) content = fs.readFileSync(envPath, 'utf8')
 
-  // Replace the key line only; every other .env variable stays untouched.
+  // Replace only the key line; all other variables stay byte-for-byte intact.
   let replaced = false
   const updated = content
     .split('\n')
@@ -97,10 +97,23 @@ function saveEnv(key) {
     })
     .join('\n')
 
-  writeFileSync(envPath, replaced
-    ? updated
-    : (updated.endsWith('\n') || updated === '' ? '' : '\n') + `${line}\n`)
-
-  console.log(`Saved to .env (${replaced ? 'replaced the existing key line' : 'appended'}). Other variables untouched.`)
-  console.log('Restart the API server (npm run dev:server) to load it, then test /api/contact.')
+  fs.writeFileSync(envPath, replaced ? updated : updated + (updated.endsWith('\n') || updated === '' ? '' : '\n') + line + '\n')
+  console.log(`Saved to ${path.basename(envPath)} (${replaced ? 'existing key line replaced' : 'appended'}). Other variables untouched.`)
+  console.log('Restart the API server, e.g. npm run dev:server (or tell the assistant to restart it).')
 }
+
+const key = await askHidden()
+if (key === null) {
+  console.log('Cancelled. Nothing was written.')
+  process.exit(0)
+}
+if (!key || key.length < 20) {
+  console.error('No usable key was entered — nothing was written.')
+  process.exit(1)
+}
+
+console.log(`Key accepted (length ${key.length}). Validating with Brevo's official account endpoint...`)
+const verdict = await validateWithBrevo(key)
+if (verdict === 'invalid') process.exit(1)
+saveEnv(key)
+process.exit(0)
