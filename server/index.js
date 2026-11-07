@@ -9,7 +9,6 @@ import helmet from 'helmet'
 import dotenv from 'dotenv'
 import Database from 'better-sqlite3'
 import { WebSocketServer } from 'ws'
-import { Resend } from 'resend'
 
 dotenv.config()
 
@@ -19,7 +18,11 @@ const app = express()
 const port = Number(process.env.PORT || 3001)
 const isProd = process.env.NODE_ENV === 'production'
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL || 'tejaskhadse900@gmail.com'
-const RESEND_API_KEY = process.env.RESEND_API_KEY
+const BREVO_API_KEY = process.env.BREVO_API_KEY
+/* Brevo only accepts senders validated in the account; the Contact Email the
+   account is registered with is the sane default. Override per environment
+   only if you validate a different sender there. */
+const CONTACT_FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || CONTACT_EMAIL
 
 /* Behind a reverse proxy (Render/Railway/nginx) this makes express-rate-limit
    key on the real client IP instead of the proxy IP. Opt-in via env. */
@@ -257,42 +260,53 @@ app.post('/api/contact', async (req, res) => {
       })
     }
 
-    if (!RESEND_API_KEY) {
+    if (!BREVO_API_KEY) {
       return res.status(503).json({
         success: false,
-        error: 'Email delivery is not configured yet. Add RESEND_API_KEY to continue.',
+        error: 'Email delivery is not configured yet. Add BREVO_API_KEY to continue.',
       })
     }
 
-    const resend = new Resend(RESEND_API_KEY)
-    const result = await resend.emails.send({
-      from: 'Portfolio Contact <onboarding@resend.dev>',
-      to: [CONTACT_EMAIL],
-      replyTo: email,
-      subject: `[Portfolio] ${subject}`,
-      text: [
-        `Name: ${name}`,
-        `Email: ${email}`,
-        `Subject: ${subject}`,
-        '',
-        'Message:',
-        message,
-      ].join('\n'),
-      html: `
-        <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.6;">
-          <h2 style="margin-bottom: 12px;">New portfolio message</h2>
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Subject:</strong> ${subject}</p>
-          <div style="margin-top: 20px; padding: 16px; background: #f3f4f6; border-radius: 10px;">
-            <p style="white-space: pre-wrap; margin: 0;">${message.replace(/\n/g, '<br />')}</p>
+    /* Brevo Transactional Email API — official endpoint:
+       POST https://api.brevo.com/v3/smtp/email with the api-key header. */
+    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': BREVO_API_KEY,
+        'content-type': 'application/json',
+        accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: 'Portfolio Contact', email: CONTACT_FROM_EMAIL },
+        to: [{ email: CONTACT_EMAIL }],
+        replyTo: { email },
+        subject: `[Portfolio] ${subject}`,
+        textContent: [
+          `Name: ${name}`,
+          `Email: ${email}`,
+          `Subject: ${subject}`,
+          '',
+          'Message:',
+          message,
+        ].join('\n'),
+        htmlContent: `
+          <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.6;">
+            <h2 style="margin-bottom: 12px;">New portfolio message</h2>
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Subject:</strong> ${subject}</p>
+            <div style="margin-top: 20px; padding: 16px; background: #f3f4f6; border-radius: 10px;">
+              <p style="white-space: pre-wrap; margin: 0;">${message.replace(/\n/g, '<br />')}</p>
+            </div>
           </div>
-        </div>
-      `,
+        `,
+      }),
     })
 
-    if (result.error) {
-      console.error('Resend error:', result.error)
+    if (!brevoResponse.ok) {
+      /* Never log the request or headers — status code only, so the API key
+         can never leak into server output. */
+      console.error('Brevo error:', brevoResponse.status)
       return res.status(502).json({
         success: false,
         error: 'The email provider rejected this message. Please try again later.',

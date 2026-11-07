@@ -203,7 +203,7 @@ console.log('\n=== COMMUNITY (two sessions) ===')
   await C.close()
 }
 
-// 9. Contact form (no RESEND_API_KEY → graceful 503 expected, NOT success)
+// 9. Contact form (no BREVO_API_KEY → graceful 503 expected, NOT success)
 console.log('\n=== CONTACT FORM ===')
 {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })

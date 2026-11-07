@@ -92,7 +92,7 @@ chat server (`server/index.js`) that owns two route families:
 
 | Route | What it does |
 | ----- | ------------ |
-| `/api/contact` | Contact form → Resend email (rate limited: 5 / 15 min) |
+| `/api/contact` | Contact form → Brevo email (rate limited: 5 / 15 min) |
 | `/api/community/*` | Developer Community group chat (SQLite persistence) |
 | `/ws` | Same-origin WebSocket for live community chat + presence |
 
@@ -122,7 +122,7 @@ the WebSocket from one origin when `NODE_ENV=production`):
   pick the GitHub repo. It mounts a 1 GiB persistent disk at `/var/data`
   (database survives deploys), sets `NODE_ENV/TRUST_PROXY/DB_PATH`, health
   checks on `/api/health`, auto-deploys on push. You only supply
-  `RESEND_API_KEY` in the dashboard.
+  `BREVO_API_KEY` in the dashboard.
 - **Railway / Fly.io / VPS** — use the included `Dockerfile`; mount a volume at
   `/app/data` (or set `DB_PATH`) or community messages reset on restart.
 
@@ -133,7 +133,7 @@ Local production check: `npm run build && NODE_ENV=production npm start`
 
 | Var | Purpose |
 | --- | ------- |
-| `RESEND_API_KEY` | Required for contact form email delivery. Without it `/api/contact` responds 503. |
+| `BREVO_API_KEY` | Required for contact form email delivery. Without it `/api/contact` responds 503. |
 | `CONTACT_EMAIL` | Where contact messages are delivered. |
 | `PORT` | Port for the Node server (default 3001). |
 | `NODE_ENV` | Set to `production` on the host: serves `dist/` + enforces CORS/CSP. |
@@ -143,13 +143,13 @@ Local production check: `npm run build && NODE_ENV=production npm start`
 `npm run backup` / `npm run restore <file>` gives WAL-safe database backups —
 see `docs/DATABASE.md`.
 
-### Resend configuration
+### Brevo configuration
 
-1. Create an API key in the Resend dashboard and set `RESEND_API_KEY`.
-2. The default `from` address (`onboarding@resend.dev`) only delivers to the
-   account owner's email until you verify a domain in Resend. For production,
-   verify your domain, then set `from` in `server/index.js` to an address on
-   that domain (e.g. `Portfolio Contact <hello@your-domain.com>`).
+1. Create a free Brevo account and generate a Transactional API key at
+   https://app.brevo.com/settings/keys/api — set it as `BREVO_API_KEY`.
+2. Brevo only accepts senders validated inside the account. Register with
+   `CONTACT_EMAIL` and it is used as the sender automatically, or validate a
+   different sender there and set the optional `CONTACT_FROM_EMAIL`.
 3. Run `node server/index.js` (behind a process manager such as systemd or
    pm2) and point the proxy at it.
 
