@@ -18,7 +18,15 @@ const app = express()
 const port = Number(process.env.PORT || 3001)
 const isProd = process.env.NODE_ENV === 'production'
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL || 'tejaskhadse900@gmail.com'
-const BREVO_API_KEY = process.env.BREVO_API_KEY
+/* Trim guards against accidental whitespace from manual .env edits; an
+   empty value behaves like a missing key (endpoint reports 503). */
+const BREVO_API_KEY = (process.env.BREVO_API_KEY || '').trim()
+if (BREVO_API_KEY && !BREVO_API_KEY.startsWith('xkeysib-')) {
+  console.warn(
+    'BREVO_API_KEY does not look like a Brevo API v3 key (xkeysib-…). ' +
+      'SMTP-relay credentials (xsmtpsib-…) cannot authenticate the Transactional API and will be rejected with 401.',
+  )
+}
 /* Brevo only accepts senders validated in the account; the Contact Email the
    account is registered with is the sane default. Override per environment
    only if you validate a different sender there. */
