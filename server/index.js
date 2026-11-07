@@ -95,7 +95,22 @@ const normaliseGroup = (value) => {
 
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: isProd
+      ? {
+          useDefaults: true,
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", 'data:'],
+            fontSrc: ["'self'", 'data:'],
+            connectSrc: ["'self'", 'ws:', 'wss:'],
+            frameAncestors: ["'none'"],
+            objectSrc: ["'none'"],
+            baseUri: ["'none'"],
+          },
+        }
+      : false,
     crossOriginResourcePolicy: false,
   }),
 )
@@ -313,6 +328,7 @@ function isAllowedWsOrigin(originHeader, hostHeader) {
 const wss = new WebSocketServer({
   server,
   path: '/ws',
+  maxPayload: 64 * 1024, // refuse oversized frames instead of buffering them
   verifyClient: (info) => isAllowedWsOrigin(info.req.headers.origin, info.req.headers.host),
 })
 const clientState = new Map()

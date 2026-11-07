@@ -113,6 +113,22 @@ location /ws   { proxy_pass http://127.0.0.1:3001; proxy_http_version 1.1;
                  proxy_set_header Host $host; }  # keep Host: the /ws origin check requires it
 ```
 
+### Deployment
+
+Deploy as a **single Node service** (the process serves `dist/`, the API, and
+the WebSocket from one origin when `NODE_ENV=production`):
+
+- **Render (recommended)** — `render.yaml` blueprint is ready: New Blueprint →
+  pick the GitHub repo. It mounts a 1 GiB persistent disk at `/var/data`
+  (database survives deploys), sets `NODE_ENV/TRUST_PROXY/DB_PATH`, health
+  checks on `/api/health`, auto-deploys on push. You only supply
+  `RESEND_API_KEY` in the dashboard.
+- **Railway / Fly.io / VPS** — use the included `Dockerfile`; mount a volume at
+  `/app/data` (or set `DB_PATH`) or community messages reset on restart.
+
+Local production check: `npm run build && NODE_ENV=production npm start`
+(then open http://localhost:3001 — the full site, API, and WebSocket).
+
 ### Environment variables (copy `.env.example` → `.env`)
 
 | Var | Purpose |
@@ -120,6 +136,12 @@ location /ws   { proxy_pass http://127.0.0.1:3001; proxy_http_version 1.1;
 | `RESEND_API_KEY` | Required for contact form email delivery. Without it `/api/contact` responds 503. |
 | `CONTACT_EMAIL` | Where contact messages are delivered. |
 | `PORT` | Port for the Node server (default 3001). |
+| `NODE_ENV` | Set to `production` on the host: serves `dist/` + enforces CORS/CSP. |
+| `TRUST_PROXY` | Set to `1` behind Render/nginx so rate limits key on real client IPs. |
+| `DB_PATH` | Optional override for the SQLite file (Render disk: `/var/data/community.db`). |
+
+`npm run backup` / `npm run restore <file>` gives WAL-safe database backups —
+see `docs/DATABASE.md`.
 
 ### Resend configuration
 
