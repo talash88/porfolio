@@ -1,0 +1,140 @@
+.playground {
+  padding-block: var(--section-pad);
+}
+
+.playground-shell {
+  display: grid;
+  gap: 1rem;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, rgba(9, 12, 18, 0.72), rgba(9, 12, 18, 0.95));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.playground-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 1rem 1rem 0;
+}
+
+.playground-button {
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--text-muted);
+  border-radius: var(--radius-pill);
+  padding: 0.6rem 0.9rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+
+.playground-button:hover,
+.playground-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.playground-button.is-active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.playground-stage {
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+  background: radial-gradient(circle at top, rgba(59, 130, 246, 0.12), transparent 42%), rgba(7, 10, 18, 0.9);
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  overflow: hidden;
+}
+
+.playground-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  cursor: grab;
+}
+
+.playground-canvas:active {
+  cursor: grabbing;
+}
+
+.playground-caption {
+  padding: 0 1rem 1rem;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.playground-fallback {
+  display: grid;
+  place-items: center;
+  min-height: 420px;
+  padding: 1.2rem;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.playground-computer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 1rem;
+}
+
+.playground-computer-controls .playground-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.playground-computer-status {
+  flex: 1 1 100%;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.playground-shell:fullscreen {
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  grid-template-rows: auto minmax(320px, 1fr) auto auto;
+  overflow: auto;
+  padding: 1rem;
+  background: #070a12;
+}
+
+.playground-shell:fullscreen .playground-stage,
+.playground-shell:fullscreen .playground-canvas {
+  height: 100%;
+  min-height: min(58dvh, 680px);
+}
+
+@media (max-width: 720px) {
+  .playground-toolbar {
+    gap: 0.5rem;
+  }
+
+  .playground-button {
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 0;
+  }
+
+  .playground-stage,
+  .playground-canvas,
+  .playground-fallback {
+    min-height: 320px;
+  }
+
+  .playground-computer-controls .playground-button {
+    flex: 1 1 calc(50% - 0.5rem);
+  }
+}

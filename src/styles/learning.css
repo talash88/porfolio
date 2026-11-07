@@ -1,0 +1,69 @@
+/* Learning — honest "currently working on" cards -------------------------- */
+.learning-grid {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.learning-card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, var(--surface) 0%, var(--bg-elevated) 100%);
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  overflow: hidden;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.learning-card::after {
+  /* soft accent glow in the corner */
+  content: '';
+  position: absolute;
+  top: -4rem;
+  right: -4rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--accent-dim), transparent);
+  pointer-events: none;
+}
+.learning-card:hover {
+  border-color: var(--line-strong);
+}
+.learning-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+  margin-bottom: 0.4rem;
+}
+.learning-card h3 {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+.learning-note {
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  max-width: 30rem;
+}
+.learning-state {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-2);
+  margin-top: 0.3rem;
+}
+
+@media (max-width: 820px) {
+  .learning-grid {
+    grid-template-columns: 1fr;
+  }
+}

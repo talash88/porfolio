@@ -1,0 +1,31 @@
+# Render deployment — single Node service: serves dist/, API, and WebSocket
+# from one origin with persistent storage and health checks.
+#
+# Prerequisite: this repo on GitHub → Render → New Blueprint → pick repo.
+# You must provide RESEND_API_KEY in the Render dashboard (marked sync: false
+# below) — Render will prompt for it on first deploy.
+services:
+  - type: web
+    name: tejas-portfolio
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: portfolio-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DB_PATH
+        value: /var/data/community.db
+      - key: CONTACT_EMAIL
+        value: tejaskhadse900@gmail.com
+      - key: RESEND_API_KEY
+        sync: false

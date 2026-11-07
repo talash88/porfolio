@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/oxlint/schema.json",
+  "ignorePatterns": ["node_modules/**", "dist/**", "shots/**", "scripts/**"],
+  "env": { "browser": true, "es2024": true },
+  "rules": {
+    "no-unused-vars": "warn"
+  }
+}

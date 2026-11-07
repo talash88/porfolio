@@ -1,0 +1,68 @@
+/**
+ * ---------------------------------------------------------------------------
+ * DESIGN TOKENS — edit these to retheme the whole site.
+ * ---------------------------------------------------------------------------
+ * One purposeful dark "ink" identity keeps the site visually consistent.
+ * The Three.js scene reads accents from --accent-* so art and code match.
+ * ---------------------------------------------------------------------------
+ */
+:root {
+  color-scheme: dark;
+
+  /* --- ink background ramp (cool near-black → lifted surfaces) --- */
+  --bg: #0a0b0e;
+  --bg-elevated: #101218;
+  --surface: #14161d;
+  --surface-2: #1a1d26;
+  --line: rgba(233, 236, 245, 0.09);
+  --line-strong: rgba(233, 236, 245, 0.18);
+
+  /* --- type colors --- */
+  --text: #eceef4;
+  --text-muted: #9ba1ae;
+  --text-faint: #6d7280;
+
+  /* --- accent: electric chartreuse, wired into the 3D scene --- */
+  --accent: #c9f24f;
+  --accent-strong: #dcff5e;
+  --accent-ink: #101208; /* text on accent fills */
+  --accent-dim: rgba(201, 242, 79, 0.14);
+
+  /* --- display fonts (self-hosted variable fonts) --- */
+  --font-sans: 'Manrope Variable', system-ui, sans-serif;
+  --font-display: 'Fraunces Variable', Georgia, serif;
+
+  /* --- fluid type scale --- */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: clamp(0.9375rem, 0.9rem + 0.2vw, 1rem);
+  --text-md: clamp(1rem, 0.94rem + 0.3vw, 1.125rem);
+  --text-lg: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
+  --text-xl: clamp(1.4rem, 1.15rem + 1.2vw, 2rem);
+  --text-2xl: clamp(1.75rem, 1.3rem + 2.2vw, 2.75rem);
+  --text-hero: clamp(2.6rem, 1.4rem + 6vw, 5.5rem);
+
+  /* --- rhythm --- */
+  --space-1: 0.5rem;
+  --space-2: 0.75rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2.25rem;
+  --space-6: 3.25rem;
+  --space-7: 5rem;
+  --section-pad: clamp(4.5rem, 3rem + 6vw, 8.5rem);
+
+  --container: 72rem;
+  --container-pad: clamp(1.25rem, 4vw, 3rem);
+  --header-h: 4.25rem;
+
+  /* --- shape & motion --- */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 160ms;
+  --dur-med: 380ms;
+  --dur-slow: 720ms;
+}

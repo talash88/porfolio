@@ -1,0 +1,130 @@
+/* Contact ---------------------------------------------------------------- */
+.contact-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+.contact-intro {
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  max-width: 34rem;
+}
+
+/* socials */
+.social-list {
+  list-style: none;
+  padding: 0;
+  margin-top: var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+  max-width: 24rem;
+}
+.social {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  background: var(--surface);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    translate var(--dur-fast) var(--ease-out);
+}
+.social svg {
+  color: var(--text-faint);
+  flex: none;
+}
+a.social:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  translate: 2px 0;
+}
+a.social:hover svg {
+  color: var(--accent);
+}
+.social-label {
+  font-weight: 700;
+}
+.social-handle {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+.social--placeholder {
+  opacity: 0.55;
+  cursor: help;
+}
+
+/* form */
+.contact-form {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg-elevated) 100%);
+  padding: var(--space-5);
+  display: grid;
+  gap: var(--space-3);
+}
+.field {
+  display: grid;
+  gap: 0.4rem;
+}
+.field label {
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: var(--text-base);
+  transition: border-color var(--dur-fast) var(--ease-out);
+  resize: vertical;
+}
+.field input::placeholder,
+.field textarea::placeholder {
+  color: var(--text-faint);
+  opacity: 0.7;
+}
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.field-error {
+  color: #ffb35c;
+  font-size: var(--text-sm);
+}
+.form-foot {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  margin-top: 0.4rem;
+}
+.form-note {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 900px) {
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+  .social-list {
+    max-width: none;
+  }
+}

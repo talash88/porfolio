@@ -1,0 +1,139 @@
+/* Experience / Education timeline (shared row language) ------------------ */
+.xp-list {
+  list-style: none;
+  padding: 0;
+  position: relative;
+  display: grid;
+  gap: var(--space-5);
+  border-left: 1px solid var(--line-strong);
+  margin-left: 0.5rem;
+  padding-left: var(--space-5);
+}
+.xp-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: baseline;
+}
+.xp-dot,
+.xp-edu-dot {
+  position: absolute;
+  left: calc(-1 * var(--space-5) - 4.5px);
+  top: 0.45em;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--text-faint);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.xp-item:hover .xp-dot,
+.xp-edu-item:hover .xp-edu-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.xp-period {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.xp-body {
+  display: grid;
+  gap: 0.4rem;
+}
+.xp-role {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+.xp-org,
+.xp-edu-org {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.xp-org > span,
+.xp-edu-org > span {
+  margin-inline: 0.35rem;
+  color: var(--text-faint);
+}
+.xp-summary,
+.xp-edu-note {
+  color: var(--text-muted);
+  max-width: 44rem;
+  font-size: var(--text-md);
+}
+
+/* Education -------------------------------------------------------------- */
+.edu-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.edu-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: var(--space-3) var(--space-4);
+  display: grid;
+  grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: center;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.edu-item:hover {
+  border-color: var(--line-strong);
+}
+.xp-edu-dot--inline {
+  display: inline-block;
+  margin-right: 0.5rem;
+}
+.edu-period {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.edu-type {
+  justify-self: end;
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 0.30rem 0.75rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+}
+
+@media (max-width: 720px) {
+  .xp-item {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  .xp-period {
+    padding-top: 0.35rem;
+  }
+  .edu-item {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'period type'
+      'body body';
+  }
+  .edu-period {
+    grid-area: period;
+  }
+  .edu-type {
+    grid-area: type;
+  }
+  .xp-edu-body {
+    grid-area: body;
+  }
+}
