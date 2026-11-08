@@ -11,6 +11,9 @@
 }
 .xp-item {
   position: relative;
+  display: block;
+}
+.xp-item .flip-card-face {
   display: grid;
   grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
   gap: var(--space-4);
@@ -77,6 +80,9 @@
   gap: var(--space-2);
 }
 .edu-item {
+  list-style: none;
+}
+.edu-item-face {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -86,14 +92,17 @@
   grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto;
   gap: var(--space-4);
   align-items: center;
-  transition:
-    border-color var(--dur-fast) var(--ease-out),
-    background-color var(--dur-med) var(--ease-out),
-    color var(--dur-med) var(--ease-out),
-    box-shadow var(--dur-med) var(--ease-out);
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
-.edu-item:hover {
+.edu-item:hover .edu-item-face {
   border-color: var(--line-strong);
+}
+.edu-back-label {
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 .xp-edu-dot--inline {
   display: inline-block;
@@ -119,14 +128,14 @@
 }
 
 @media (max-width: 720px) {
-  .xp-item {
+  .xp-item .flip-card-face {
     grid-template-columns: 1fr;
     gap: 0.5rem;
   }
   .xp-period {
     padding-top: 0.35rem;
   }
-  .edu-item {
+  .edu-item-face {
     grid-template-columns: 1fr auto;
     grid-template-areas:
       'period type'

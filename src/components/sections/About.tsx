@@ -1,4 +1,5 @@
 import { about, profile, site } from '../../data/portfolio'
+import { FlipCard } from '../ui/FlipCard'
 import { SectionHeading } from '../ui/SectionHeading'
 import '../../styles/about.css'
 
@@ -25,30 +26,48 @@ export function About() {
           </div>
         </div>
 
-        <aside className="about-facts" aria-label={`Quick facts about ${site.name}`}>
-          <span className="about-facts-label">Quick facts</span>
-          <dl>
-            {about.facts.map((fact) => (
-              <div className="about-fact" key={fact.label}>
-                <dt>{fact.label}</dt>
-                <dd>
-                  {fact.value.split('•').map((part, index) => (
-                    <span key={index}>
-                      {index > 0 ? (
-                        // nbsp keeps the bullet glued to the word before it, so a
-                        // wrapped line never starts with a bare separator.
-                        <span className="about-fact-sep" aria-hidden="true">
-                          {'\u00a0• '}
+        <FlipCard
+          as="aside"
+          className="about-facts"
+          label={`Quick facts about ${site.name}`}
+          front={
+            <div className="about-facts-face">
+              <span className="about-facts-label">Quick facts</span>
+              <dl>
+                {about.facts.map((fact) => (
+                  <div className="about-fact" key={fact.label}>
+                    <dt>{fact.label}</dt>
+                    <dd>
+                      {fact.value.split('•').map((part, index) => (
+                        <span key={index}>
+                          {index > 0 ? (
+                            <span className="about-fact-sep" aria-hidden="true">
+                              {'\u00a0• '}
+                            </span>
+                          ) : null}
+                          {part.trim()}
                         </span>
-                      ) : null}
-                      {part.trim()}
-                    </span>
-                  ))}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </aside>
+                      ))}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          }
+          back={
+            <div className="about-facts-face about-facts-face--back">
+              <span className="about-facts-label">At a glance</span>
+              <dl>
+                {[...about.facts].reverse().map((fact) => (
+                  <div className="about-fact" key={fact.label}>
+                    <dt>{fact.label}</dt>
+                    <dd>{fact.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          }
+        />
       </div>
     </section>
   )

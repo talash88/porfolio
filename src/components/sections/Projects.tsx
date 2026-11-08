@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { projects, type Project } from '../../data/portfolio'
+import { FlipCard } from '../ui/FlipCard'
 import { SectionHeading } from '../ui/SectionHeading'
 import '../../styles/projects.css'
 
@@ -169,36 +170,77 @@ export function Projects() {
         <ul className="project-list">
           {projects.items.map((project, i) => (
             <li key={project.id} className="project-item">
-              <button
-                type="button"
-                className="project-row"
-                onPointerEnter={() => setHoverIndex(i)}
-                onPointerLeave={() => setHoverIndex(null)}
-                onFocus={() => setHoverIndex(null)}
-                onClick={() => setDialogProject(project)}
-                aria-haspopup="dialog"
-              >
-                <span className="project-row-index" aria-hidden="true">
-                  {project.index}
-                </span>
-                <span className="project-row-main">
-                  <span className="project-row-title display">{project.title}</span>
-                  <span className="project-row-summary">{project.summary}</span>
-                  <span className="stack-chips stack-chips--inline">
-                    {project.stack.map((s) => (
-                      <span key={s}>{s}</span>
-                    ))}
-                  </span>
-                </span>
-                <span className="project-row-meta">
-                  <span>{project.category}</span>
-                  <span>{project.year}</span>
-                  <span className="project-row-open" aria-hidden="true">
-                    <span className="project-row-open-label">Open case</span>
-                    <span className="project-row-open-arrow">→</span>
-                  </span>
-                </span>
-              </button>
+              <FlipCard
+                role="group"
+                className="project-row-card"
+                label={`${project.title} project`}
+                onHoverStart={() => setHoverIndex(i)}
+                onHoverEnd={() => setHoverIndex(null)}
+                front={
+                  <button
+                    type="button"
+                    className="project-row"
+                    onFocus={() => setHoverIndex(null)}
+                    onClick={(event) => {
+                      if (event.detail > 0) {
+                        event.preventDefault()
+                        return
+                      }
+                      setDialogProject(project)
+                    }}
+                    aria-haspopup="dialog"
+                  >
+                    <span className="project-row-index" aria-hidden="true">
+                      {project.index}
+                    </span>
+                    <span className="project-row-main">
+                      <span className="project-row-title display">{project.title}</span>
+                      <span className="project-row-summary">{project.summary}</span>
+                      <span className="stack-chips stack-chips--inline">
+                        {project.stack.map((s) => (
+                          <span key={s}>{s}</span>
+                        ))}
+                      </span>
+                    </span>
+                    <span className="project-row-meta">
+                      <span>{project.category}</span>
+                      <span>{project.year}</span>
+                      <span className="project-row-open" aria-hidden="true">
+                        <span className="project-row-open-label">Open case</span>
+                        <span className="project-row-open-arrow">→</span>
+                      </span>
+                    </span>
+                  </button>
+                }
+                back={
+                  <div className="project-row-back">
+                    <div className="project-row-back-copy">
+                      <p className="project-row-back-meta">
+                        {project.category} <span aria-hidden="true">·</span> {project.year}
+                      </p>
+                      <h3 className="project-row-title display">{project.title}</h3>
+                      <p className="project-row-summary">{project.summary}</p>
+                      <p className="project-row-role">{project.role}</p>
+                      <ul className="stack-chips" aria-label="Technology stack">
+                        {project.stack.map((s) => (
+                          <li key={s}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn--ghost project-row-open-button"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setDialogProject(project)
+                      }}
+                      aria-haspopup="dialog"
+                    >
+                      Open case study <span aria-hidden="true">↗</span>
+                    </button>
+                  </div>
+                }
+              />
             </li>
           ))}
         </ul>

@@ -7,6 +7,9 @@
   gap: var(--space-3);
 }
 .skill-group {
+  list-style: none;
+}
+.skill-group-face {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -15,16 +18,10 @@
   display: grid;
   gap: var(--space-4);
   align-content: start;
-  transition:
-    border-color var(--dur-med) var(--ease-out),
-    background-color var(--dur-med) var(--ease-out),
-    color var(--dur-med) var(--ease-out),
-    box-shadow var(--dur-med) var(--ease-out),
-    transform var(--dur-med) var(--ease-out);
+  transition: border-color var(--dur-med) var(--ease-out);
 }
-.skill-group:hover {
+.skill-group:hover .skill-group-face {
   border-color: var(--line-strong);
-  transform: translateY(-2px);
 }
 .skill-group-head {
   display: flex;
@@ -83,6 +80,23 @@
 }
 .skill-row:hover .skill-tick {
   color: var(--accent);
+}
+.skill-back-list {
+  list-style: none;
+  padding: 0;
+  margin: auto 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.skill-back-list li {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
 }
 
 /* Balanced last row: a lone trailing card centers in the middle column

@@ -7,6 +7,9 @@
   gap: var(--space-3);
 }
 .learning-card {
+  list-style: none;
+}
+.learning-card-face {
   position: relative;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -17,13 +20,9 @@
   gap: var(--space-2);
   align-content: start;
   overflow: hidden;
-  transition:
-    border-color var(--dur-fast) var(--ease-out),
-    background-color var(--dur-med) var(--ease-out),
-    color var(--dur-med) var(--ease-out),
-    box-shadow var(--dur-med) var(--ease-out);
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
-.learning-card::after {
+.learning-card-face::after {
   /* soft accent glow in the corner */
   content: '';
   position: absolute;
@@ -35,8 +34,15 @@
   background: radial-gradient(closest-side, var(--accent-dim), transparent);
   pointer-events: none;
 }
-.learning-card:hover {
+.learning-card:hover .learning-card-face {
   border-color: var(--line-strong);
+}
+.learning-back-label {
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 .learning-dot {
   width: 8px;

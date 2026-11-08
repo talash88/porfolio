@@ -1,4 +1,5 @@
 import { learning } from '../../data/portfolio'
+import { FlipCard } from '../ui/FlipCard'
 import { SectionHeading } from '../ui/SectionHeading'
 import '../../styles/learning.css'
 
@@ -14,15 +15,32 @@ export function Learning() {
         />
         <ul className="learning-grid">
           {learning.items.map((item, i) => (
-            <li className="learning-card" key={`${item.name}-${i}`}>
-              <span className="learning-dot" aria-hidden="true" />
-              <h3>{item.name}</h3>
-              <p className="learning-note">{item.note}</p>
-              <p className="learning-state">
-                <span className="visually-hidden">Current state: </span>
-                {item.progressLabel}
-              </p>
-            </li>
+            <FlipCard
+              as="li"
+              className="learning-card"
+              key={`${item.name}-${i}`}
+              label={item.name}
+              front={
+                <div className="learning-card-face">
+                  <span className="learning-dot" aria-hidden="true" />
+                  <h3>{item.name}</h3>
+                  <p className="learning-note">{item.note}</p>
+                  <p className="learning-state">
+                    <span className="visually-hidden">Current state: </span>
+                    {item.progressLabel}
+                  </p>
+                </div>
+              }
+              back={
+                <div className="learning-card-face learning-card-face--back">
+                  <span className="learning-dot" aria-hidden="true" />
+                  <span className="learning-back-label">Current focus</span>
+                  <h3>{item.name}</h3>
+                  <p className="learning-note">{item.note}</p>
+                  <p className="learning-state">{item.progressLabel}</p>
+                </div>
+              }
+            />
           ))}
         </ul>
       </div>

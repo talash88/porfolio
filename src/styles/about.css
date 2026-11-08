@@ -40,6 +40,8 @@
 .about-facts {
   position: sticky;
   top: calc(var(--header-h) + var(--space-4));
+}
+.about-facts-face {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, var(--surface) 0%, var(--bg-elevated) 100%);
@@ -47,10 +49,9 @@
   padding: var(--space-4);
   display: grid;
   gap: var(--space-3);
-  transition:
-    background-color var(--dur-med) var(--ease-out),
-    border-color var(--dur-med) var(--ease-out),
-    box-shadow var(--dur-med) var(--ease-out);
+}
+.about-facts-face--back .about-fact {
+  padding-inline: var(--space-4);
 }
 .about-facts-label {
   font-size: var(--text-xs);

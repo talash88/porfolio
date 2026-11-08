@@ -7,6 +7,10 @@
 .project-item {
   border-bottom: 1px solid var(--line);
 }
+.project-row-card {
+  display: block;
+  width: 100%;
+}
 .project-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -18,10 +22,7 @@
   border: 0;
   text-align: left;
   cursor: pointer;
-  transition: padding var(--dur-med) var(--ease-out);
-}
-.project-row:hover {
-  padding-left: 0.75rem;
+  transition: color var(--dur-med) var(--ease-out);
 }
 
 .project-row-index {
@@ -32,7 +33,7 @@
   font-variant-numeric: tabular-nums;
   transition: color var(--dur-fast) var(--ease-out);
 }
-.project-row:hover .project-row-index {
+.project-row-card:hover .project-row-index {
   color: var(--accent);
 }
 
@@ -93,9 +94,39 @@
   color: var(--text-muted);
   transition: color var(--dur-fast) var(--ease-out), gap var(--dur-fast) var(--ease-out);
 }
-.project-row:hover .project-row-open {
+.project-row-card:hover .project-row-open {
   color: var(--accent);
   gap: 0.7rem;
+}
+.project-row-back {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  min-height: 100%;
+  padding: var(--space-4) 0.25rem;
+}
+.project-row-back-copy {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.project-row-back-meta,
+.project-row-role {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.project-row-role {
+  color: var(--text-muted);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.project-row-open-button {
+  white-space: nowrap;
 }
 
 /* Generative artwork ---------------------------------------------------- */
@@ -160,6 +191,10 @@
   opacity: 1;
   scale: 1;
   rotate: 0deg;
+}
+.projects:has(.project-row-card.is-flipped) .project-preview {
+  opacity: 0;
+  scale: 0.92;
 }
 .project-preview .project-art {
   box-shadow: 0 18px 60px rgb(0 0 0 / 0.45);
@@ -290,7 +325,8 @@
   .project-dialog {
     margin: auto; /* keep the UA centering when the default was displaced */
   }
-  .project-row {
+  .project-row,
+  .project-row-back {
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
       'index meta'
@@ -306,6 +342,13 @@
   }
   .project-row-meta {
     grid-area: meta;
+  }
+  .project-row-back {
+    grid-template-columns: 1fr;
+    grid-template-areas: none;
+  }
+  .project-row-open-button {
+    justify-self: start;
   }
   .project-row-open-label {
     display: none;
