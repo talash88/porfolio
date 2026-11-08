@@ -604,6 +604,13 @@ wss.on('connection', (socket) => {
 wss.on('close', () => clearInterval(heartbeat))
 wss.on('error', (error) => console.error('WebSocket server error:', error.message))
 
+/* API 404: any unknown /api/* path must return JSON, never the Express
+   HTML error page or the SPA fallback — a misrouted API request should be
+   diagnosable by clients (and by the contact form's error handling). */
+app.use('/api', (_req, res) => {
+  res.status(404).json({ success: false, error: 'API endpoint not found.' })
+})
+
 /* In production the same Node process serves the built frontend, so the
    portfolio, the API and the WebSocket share one HTTPS origin with no extra
    proxy configuration needed (Render/Railway/Fly single-service deploys). */
