@@ -78,6 +78,10 @@ export class PlaygroundSceneManager {
     })
     this.renderer = renderer
     this.renderer.setClearColor(0x000000, 0)
+    /* No preset uses shadow maps — every "shadow" in these scenes is plain
+       surface shading. Keeping the shadow pipeline explicitly disabled avoids
+       any shadow-pass cost or artifacts. */
+    this.renderer.shadowMap.enabled = false
 
     this.scene = new THREE.Scene()
     const width = this.element.clientWidth || this.element.parentElement?.clientWidth || 900
@@ -247,14 +251,29 @@ export class PlaygroundSceneManager {
     const group = new THREE.Group()
     const shapes: THREE.Object3D[] = []
 
+    /* Preset-local lighting (children of this group, so no other preset is
+       affected). The shared scene lights alone leave faces turned away from
+       the point light near-black — balanced key/fill/rim + soft ambient keep
+       every surface illuminated without flattening the depth. */
+    const keyLight = new THREE.DirectionalLight('#9be7ff', 1.4)
+    keyLight.position.set(4, 5, 6)
+    const fillLight = new THREE.DirectionalLight('#7dd3fc', 0.6)
+    fillLight.position.set(-5, -3, 4)
+    const rimLight = new THREE.DirectionalLight('#c084fc', 1.0)
+    rimLight.position.set(-3, 4, -6)
+    const ambient = new THREE.AmbientLight('#223a5e', 0.55)
+    group.add(keyLight, fillLight, rimLight, ambient)
+
+    /* Opaque knot: the previous transparent/0.9-opacity version blended the
+       dark background through the tube wherever it passed behind itself,
+       producing shadow-like dark bands. Opaque geometry renders clean and
+       solid while the emissive keeps the luminous look. */
     const material = new THREE.MeshPhysicalMaterial({
       color: '#8be9fd',
       emissive: '#3f8efc',
       emissiveIntensity: 0.6,
-      metalness: 0.35,
-      roughness: 0.2,
-      transparent: true,
-      opacity: 0.9,
+      metalness: 0.25,
+      roughness: 0.3,
     })
 
     const knot = new THREE.Mesh(new THREE.TorusKnotGeometry(1.3, 0.38, 180, 32), material)
@@ -262,17 +281,25 @@ export class PlaygroundSceneManager {
       color: '#c084fc',
       emissive: '#4f46e5',
       emissiveIntensity: 0.7,
-      metalness: 0.45,
-      roughness: 0.25,
+      /* Lower metalness + higher roughness than before: with no environment
+         map, high metalness reflected the dark void (dark patches) and the
+         shared point light clipped to a blown-out hotspot. */
+      metalness: 0.25,
+      roughness: 0.35,
     }))
+    /* Glassy shell: light tint at very low opacity with depthWrite disabled —
+       the old near-black film (#0f172a @ 0.16) rendered as floating dark
+       facets and dimmed everything behind it. depthWrite off prevents the
+       transparent shell from creating depth artifacts against itself. */
     const shell = new THREE.Mesh(new THREE.OctahedronGeometry(2.3, 0), new THREE.MeshStandardMaterial({
-      color: '#0f172a',
+      color: '#67e8f9',
       emissive: '#67e8f9',
-      emissiveIntensity: 0.16,
+      emissiveIntensity: 0.12,
       transparent: true,
-      opacity: 0.16,
-      roughness: 0.34,
-      metalness: 0.28,
+      opacity: 0.08,
+      roughness: 0.45,
+      metalness: 0.1,
+      depthWrite: false,
     }))
 
     group.add(knot, orb, shell)

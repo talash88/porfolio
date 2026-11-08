@@ -85,15 +85,23 @@ function ContactForm() {
         body: JSON.stringify(payload),
       })
 
-      const result = (await response.json().catch(() => ({ success: false, error: 'Unable to send message.' }))) as {
+      /* A non-JSON body means the request never reached the API — typically
+         the backend is down and the dev proxy / host returned a plain-text
+         error page. Report that accurately instead of a generic send error. */
+      const result = (await response.json().catch(() => null)) as {
         success?: boolean
         error?: string
         message?: string
-      }
+      } | null
 
-      if (!response.ok || !result.success) {
+      if (!response.ok || !result?.success) {
         setStatus('error')
-        setMessage(result.error || 'The message could not be sent right now.')
+        if (result?.error) {
+          setMessage(result.error)
+        } else {
+          console.error(`Contact form: API returned HTTP ${response.status} with a non-JSON body.`)
+          setMessage('Cannot reach the mail server. Please make sure the backend is running, then try again.')
+        }
         return
       }
 
@@ -102,7 +110,7 @@ function ContactForm() {
       setMessage(result.message || 'Your message has been sent successfully.')
     } catch {
       setStatus('error')
-      setMessage('The message could not be sent. Please try again in a moment.')
+      setMessage('Cannot reach the mail server. Please check your connection and try again.')
     } finally {
       submittingRef.current = false
     }

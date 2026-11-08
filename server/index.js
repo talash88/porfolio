@@ -339,9 +339,30 @@ app.post('/api/contact', async (req, res) => {
     }
 
     if (!brevoResponse.ok) {
-      /* Never log the request or headers — status code only, so the API key
-         can never leak into server output. */
-      console.error('Brevo error:', brevoResponse.status)
+      /* Never log the request, headers, or API key — status and provider
+         error code only. The provider's message text is deliberately not
+         logged: it can echo submitted form content. */
+      let providerCode = 'unknown'
+      try {
+        const body = await brevoResponse.json()
+        if (body?.code) providerCode = String(body.code)
+      } catch {
+        /* non-JSON provider error body — keep the status code only */
+      }
+      console.error(`Brevo error: HTTP ${brevoResponse.status} (${providerCode})`)
+
+      if (brevoResponse.status === 401 || brevoResponse.status === 403) {
+        return res.status(502).json({
+          success: false,
+          error: 'The email service rejected its credentials. Please reach me directly by email instead.',
+        })
+      }
+      if (brevoResponse.status === 429) {
+        return res.status(429).json({
+          success: false,
+          error: 'The email service is receiving too many messages right now. Please try again later.',
+        })
+      }
       return res.status(502).json({
         success: false,
         error: 'The email provider rejected this message. Please try again later.',
