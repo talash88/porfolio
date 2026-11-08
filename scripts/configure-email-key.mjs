@@ -112,7 +112,7 @@ if (!key || key.length < 20) {
   process.exit(1)
 }
 
-console.log(`Key accepted (length ${key.length}). Validating with Brevo's official account endpoint...`)
+console.log(`Validating the entered key with Brevo's official account endpoint...`)
 const verdict = await validateWithBrevo(key)
 if (verdict === 'invalid') process.exit(1)
 saveEnv(key)

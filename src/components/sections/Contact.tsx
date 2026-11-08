@@ -4,6 +4,8 @@ import { SectionHeading } from '../ui/SectionHeading'
 import { Icon } from '../ui/Icon'
 import '../../styles/contact.css'
 
+const CONTACT_ENDPOINT = '/api/contact'
+
 /* Socials — placeholders (bracketed URLs in the config) render as inert
    chips so the live site never exposes a broken link. */
 function SocialRow({ social }: { social: SocialLink }) {
@@ -79,38 +81,51 @@ function ContactForm() {
     submittingRef.current = true
 
     try {
-      const response = await fetch('/api/contact', {
+      const response = await fetch(CONTACT_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(20_000),
       })
 
-      /* A non-JSON body means the request never reached the API — typically
-         the backend is down and the dev proxy / host returned a plain-text
-         error page. Report that accurately instead of a generic send error. */
-      const result = (await response.json().catch(() => null)) as {
+      const result = (response.headers.get('content-type')?.includes('application/json')
+        ? await response.json().catch(() => null)
+        : null) as {
         success?: boolean
+        accepted?: boolean
+        code?: string
         error?: string
         message?: string
       } | null
 
-      if (!response.ok || !result?.success) {
+      if (!response.ok || !result || result.success !== true || result.accepted !== true) {
         setStatus('error')
-        if (result?.error) {
-          setMessage(result.error)
+        console.error(`Contact form API response: HTTP ${response.status} (${result?.code ?? 'unclassified'})`)
+        if (response.status === 404 || result?.code === 'API_NOT_FOUND') {
+          setMessage('The contact service was not found. Please use the direct email link instead.')
+        } else if (response.status === 429 || result?.code === 'RATE_LIMITED' || result?.code === 'PROVIDER_RATE_LIMITED') {
+          setMessage(result?.error || 'Too many messages were submitted. Please try again later.')
+        } else if (result?.error) setMessage(result.error)
+        else if (response.status >= 500) {
+          setMessage('The contact service could not complete this request. Please try again later.')
         } else {
-          console.error(`Contact form: API returned HTTP ${response.status} with a non-JSON body.`)
-          setMessage('Cannot reach the mail server. Please make sure the backend is running, then try again.')
+          setMessage(`The contact service returned HTTP ${response.status}. Please try again later.`)
         }
         return
       }
 
       form.reset()
       setStatus('success')
-      setMessage(result.message || 'Your message has been sent successfully.')
-    } catch {
+      setMessage(result.message || 'Your message was accepted by the email service.')
+    } catch (error) {
       setStatus('error')
-      setMessage('Cannot reach the mail server. Please check your connection and try again.')
+      const errorName = error instanceof Error ? error.name : 'NetworkError'
+      console.error(`Contact form request failed: ${errorName}`)
+      if (errorName === 'TimeoutError' || errorName === 'AbortError') {
+        setMessage('The contact service took too long to respond. Please try again later.')
+      } else {
+        setMessage('Could not connect to the contact service. Please try again later or use the direct email link.')
+      }
     } finally {
       submittingRef.current = false
     }

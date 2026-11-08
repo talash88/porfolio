@@ -9,6 +9,7 @@ import helmet from 'helmet'
 import dotenv from 'dotenv'
 import Database from 'better-sqlite3'
 import { WebSocketServer } from 'ws'
+import { processContactSubmission } from './contact-email.js'
 
 dotenv.config()
 
@@ -17,20 +18,6 @@ const __dirname = path.dirname(__filename)
 const app = express()
 const port = Number(process.env.PORT || 3001)
 const isProd = process.env.NODE_ENV === 'production'
-const CONTACT_EMAIL = process.env.CONTACT_EMAIL || 'tejaskhadse900@gmail.com'
-/* Trim guards against accidental whitespace from manual .env edits; an
-   empty value behaves like a missing key (endpoint reports 503). */
-const BREVO_API_KEY = (process.env.BREVO_API_KEY || '').trim()
-if (BREVO_API_KEY && !BREVO_API_KEY.startsWith('xkeysib-')) {
-  console.warn(
-    'BREVO_API_KEY does not look like a Brevo API v3 key (xkeysib-…). ' +
-      'SMTP-relay credentials (xsmtpsib-…) cannot authenticate the Transactional API and will be rejected with 401.',
-  )
-}
-/* Brevo only accepts senders validated in the account; the Contact Email the
-   account is registered with is the sane default. Override per environment
-   only if you validate a different sender there. */
-const CONTACT_FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || CONTACT_EMAIL
 
 /* Behind a reverse proxy (Render/Railway/nginx) this makes express-rate-limit
    key on the real client IP instead of the proxy IP. Opt-in via env. */
@@ -87,7 +74,6 @@ const CHANNELS = [
 ]
 
 const sanitise = (value) => String(value ?? '').trim()
-const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 
 const truncate = (value, max) => {
   const text = String(value ?? '')
@@ -98,16 +84,6 @@ const sanitizeText = (input) => {
   const value = String(input ?? '').replace(/[<>]/g, '')
   return value.trim().replace(/\s+/g, ' ')
 }
-
-/* Escape values interpolated into the HTML email body so visitor input can
-   never inject markup into the message (the text version needs no escaping). */
-const escapeHtml = (value) =>
-  String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 
 const normaliseGroup = (value) => {
   const candidate = sanitise(value)
@@ -136,12 +112,9 @@ app.use(
   }),
 )
 
-/* Production CORS hardening: the browser only ever talks to its own origin
-   (static files and the API are served from the same host), so any cross-site
-   Origin header on the API is rejected. Dev is exempt: the Vite proxy rewrites
-   the Host header, making a plain same-host test a false positive.
-   Hosts that legitimately proxy with a different Host (WS check order stays
-   same-origin on the browser side) can be allowed via ALLOWED_ORIGINS. */
+/* Production CORS is same-origin by default; split frontends must be explicitly
+   listed in ALLOWED_ORIGINS. Dev is exempt because Vite proxies local requests
+   and rewrites Host. */
 const allowedOrigins = new Set(
   String(process.env.ALLOWED_ORIGINS || '')
     .split(',')
@@ -152,14 +125,30 @@ app.use('/api', (req, res, next) => {
   if (!isProd) return next()
   const origin = req.headers.origin
   if (!origin) return next() // same-origin GET/POST without CORS, curl, health checks
+  let originHost
   try {
-    if (origin === req.headers.host || allowedOrigins.has(origin)) return next()
-    const originHost = new URL(origin).host
-    if (originHost === req.headers.host || allowedOrigins.has(originHost)) return next()
+    originHost = new URL(origin).host
   } catch {
-    /* fallthrough */
+    return res.status(403).json({
+      success: false,
+      code: 'CORS_ORIGIN_DENIED',
+      error: 'Cross-origin API access is not allowed.',
+    })
   }
-  return res.status(403).json({ success: false, error: 'Cross-origin API access is not allowed.' })
+  const sameOrigin = originHost === req.headers.host
+  if (!sameOrigin && !allowedOrigins.has(origin) && !allowedOrigins.has(originHost)) {
+    return res.status(403).json({
+      success: false,
+      code: 'CORS_ORIGIN_DENIED',
+      error: 'Cross-origin API access is not allowed.',
+    })
+  }
+  res.vary('Origin')
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  if (req.method === 'OPTIONS') return res.sendStatus(204)
+  return next()
 })
 
 /* Rate limiting is scoped to the contact form so community reads/writes are
@@ -173,6 +162,7 @@ app.use(
     legacyHeaders: false,
     message: {
       success: false,
+      code: 'RATE_LIMITED',
       error: 'Too many contact form submissions. Please try again later.',
     },
   }),
@@ -184,7 +174,6 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     status: 'contact service running',
-    contactEmail: CONTACT_EMAIL,
   })
 })
 
@@ -237,149 +226,8 @@ app.post('/api/community/report', (req, res) => {
 })
 
 app.post('/api/contact', async (req, res) => {
-  try {
-    const name = sanitise(req.body?.name)
-    const email = sanitise(req.body?.email)
-    const subject = sanitise(req.body?.subject)
-    const message = sanitise(req.body?.message)
-
-    if (!name || !email || !subject || !message) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please complete all required fields before sending.',
-      })
-    }
-
-    if (name.length < 2 || name.length > 120) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please enter a valid name.',
-      })
-    }
-
-    if (!isValidEmail(email)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please use a valid email address.',
-      })
-    }
-
-    if (subject.length < 3 || subject.length > 180) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please provide a concise subject line.',
-      })
-    }
-
-    if (message.length < 10 || message.length > 5000) {
-      return res.status(400).json({
-        success: false,
-        error: 'Message length must be between 10 and 5000 characters.',
-      })
-    }
-
-    if (!BREVO_API_KEY) {
-      return res.status(503).json({
-        success: false,
-        error: 'Email delivery is not configured yet. Add BREVO_API_KEY to continue.',
-      })
-    }
-
-    /* Brevo Transactional Email API — official endpoint:
-       POST https://api.brevo.com/v3/smtp/email with the api-key header.
-       AbortSignal.timeout bounds the request so a hung provider connection
-       surfaces as an error instead of holding the client request open. */
-    let brevoResponse
-    try {
-      brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        signal: AbortSignal.timeout(15_000),
-        headers: {
-          'api-key': BREVO_API_KEY,
-          'content-type': 'application/json',
-          accept: 'application/json',
-        },
-        body: JSON.stringify({
-          sender: { name: 'Portfolio Contact', email: CONTACT_FROM_EMAIL },
-          to: [{ email: CONTACT_EMAIL }],
-          replyTo: { email },
-          subject: `[Portfolio] ${subject}`,
-          textContent: [
-            `Name: ${name}`,
-            `Email: ${email}`,
-            `Subject: ${subject}`,
-            '',
-            'Message:',
-            message,
-          ].join('\n'),
-          htmlContent: `
-            <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.6;">
-              <h2 style="margin-bottom: 12px;">New portfolio message</h2>
-              <p><strong>Name:</strong> ${escapeHtml(name)}</p>
-              <p><strong>Email:</strong> ${escapeHtml(email)}</p>
-              <p><strong>Subject:</strong> ${escapeHtml(subject)}</p>
-              <div style="margin-top: 20px; padding: 16px; background: #f3f4f6; border-radius: 10px;">
-                <p style="white-space: pre-wrap; margin: 0;">${escapeHtml(message).replace(/\n/g, '<br />')}</p>
-              </div>
-            </div>
-          `,
-        }),
-      })
-    } catch (fetchError) {
-      /* Timeouts and network failures land here — the provider was not
-         reached, so this must be reported as an error, never a success. */
-      const timedOut = fetchError?.name === 'TimeoutError' || fetchError?.name === 'AbortError'
-      console.error('Brevo request failed:', timedOut ? 'timed out after 15s' : 'network error')
-      return res.status(504).json({
-        success: false,
-        error: timedOut
-          ? 'The email provider took too long to respond. Please try again later.'
-          : 'Could not reach the email provider. Please try again later.',
-      })
-    }
-
-    if (!brevoResponse.ok) {
-      /* Never log the request, headers, or API key — status and provider
-         error code only. The provider's message text is deliberately not
-         logged: it can echo submitted form content. */
-      let providerCode = 'unknown'
-      try {
-        const body = await brevoResponse.json()
-        if (body?.code) providerCode = String(body.code)
-      } catch {
-        /* non-JSON provider error body — keep the status code only */
-      }
-      console.error(`Brevo error: HTTP ${brevoResponse.status} (${providerCode})`)
-
-      if (brevoResponse.status === 401 || brevoResponse.status === 403) {
-        return res.status(502).json({
-          success: false,
-          error: 'The email service rejected its credentials. Please reach me directly by email instead.',
-        })
-      }
-      if (brevoResponse.status === 429) {
-        return res.status(429).json({
-          success: false,
-          error: 'The email service is receiving too many messages right now. Please try again later.',
-        })
-      }
-      return res.status(502).json({
-        success: false,
-        error: 'The email provider rejected this message. Please try again later.',
-      })
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: 'Your message has been sent successfully.',
-    })
-  } catch (error) {
-    console.error('Contact endpoint failure:', error)
-    return res.status(500).json({
-      success: false,
-      error: 'Something went wrong while sending your message. Please try again later.',
-    })
-  }
+  const result = await processContactSubmission(req.body)
+  return res.status(result.status).json(result.body)
 })
 
 const server = http.createServer(app)
@@ -608,7 +456,7 @@ wss.on('error', (error) => console.error('WebSocket server error:', error.messag
    HTML error page or the SPA fallback — a misrouted API request should be
    diagnosable by clients (and by the contact form's error handling). */
 app.use('/api', (_req, res) => {
-  res.status(404).json({ success: false, error: 'API endpoint not found.' })
+  res.status(404).json({ success: false, code: 'API_NOT_FOUND', error: 'API endpoint not found.' })
 })
 
 /* In production the same Node process serves the built frontend, so the
@@ -624,14 +472,15 @@ if (isProd) {
 }
 
 app.use((error, _req, res, _next) => {
-  console.error('Unhandled server error:', error)
+  console.error('Unhandled server error:', error?.name ?? 'unknown')
   res.status(500).json({
     success: false,
+    code: 'SERVER_ERROR',
     error: 'Unexpected server error. Please try again later.',
   })
 })
 
-const httpServer = server.listen(port, () => {
+const httpServer = server.listen(port, '0.0.0.0', () => {
   console.log(`Portfolio API + community chat listening on http://localhost:${port}${isProd ? ' (serving dist/)' : ''}`)
 })
 

@@ -20,8 +20,6 @@ if (!key) {
   process.exit(1)
 }
 
-console.log(`Key loaded: length ${key.length}, prefix ${key.slice(0, 8)}…`)
-
 if (!key.startsWith('xkeysib-')) {
   const wrongType = key.startsWith('xsmtps')
   console.error(

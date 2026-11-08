@@ -68,6 +68,7 @@ damped inertia, and drifts with scroll. Engineering guarantees:
 Harnesses under `scripts/` use Playwright (`npx playwright install chromium` first):
 
 ```bash
+npm test                          # Contact email helper and Vercel handler
 node scripts/shot.mjs            # viewport screenshots + console-error audit
 node scripts/test-hero.mjs       # scene reactivity, drag, fallbacks, fps
 ```
@@ -92,16 +93,17 @@ chat server (`server/index.js`) that owns two route families:
 
 | Route | What it does |
 | ----- | ------------ |
-| `/api/contact` | Contact form → Brevo email (rate limited: 5 / 15 min) |
+| `/api/contact` | Contact form → Brevo email (Vercel Function in production; local Express proxy in development) |
+| `/api/health` | Contact API health check |
 | `/api/community/*` | Developer Community group chat (SQLite persistence) |
 | `/ws` | Same-origin WebSocket for live community chat + presence |
 
-Both **must be served from the same origin** as the static site — the client
-talks to `/api/*` and the WebSocket to `/ws` on its own host, so deployment
-needs a reverse proxy (nginx, Caddy, Vercel/Netlify rewrites, etc.) that
-forwards those paths to the Node server. The WebSocket URL is derived from
-`window.location` (http→ws, https→wss), so HTTPS and proxies work with **zero
-client configuration**.
+On Vercel, `api/contact.js` and `api/health.js` are same-origin Node.js
+Functions. The local `npm run dev` workflow continues to proxy these paths to
+the Express routes in `server/index.js`; both use the same contact-email helper.
+The Developer Community API and WebSocket remain on their existing Node
+backend and are not moved by this setup. Brevo keys belong only in server-side
+environment variables, never in `VITE_*` variables.
 
 Example nginx locations:
 
@@ -115,14 +117,23 @@ location /ws   { proxy_pass http://127.0.0.1:3001; proxy_http_version 1.1;
 
 ### Deployment
 
-Deploy as a **single Node service** (the process serves `dist/`, the API, and
-the WebSocket from one origin when `NODE_ENV=production`):
+Deploy the Vercel frontend and Contact API together:
+
+- **Vercel** — `vercel.json` builds `dist/` and configures the Node.js contact
+  function duration. Root-level `api/` functions deploy alongside the static
+  Vite output. Set `BREVO_API_KEY`, `CONTACT_EMAIL`, and (if different from the
+  recipient) `CONTACT_FROM_EMAIL` in the Vercel project's server environment.
+  The contact endpoint is same-origin and validates the request Origin against
+  the request host.
+
+The existing Node service remains available for the Developer Community and
+WebSocket routes:
 
 - **Render (recommended)** — `render.yaml` blueprint is ready: New Blueprint →
   pick the GitHub repo. It mounts a 1 GiB persistent disk at `/var/data`
-  (database survives deploys), sets `NODE_ENV/TRUST_PROXY/DB_PATH`, health
-  checks on `/api/health`, auto-deploys on push. You only supply
-  `BREVO_API_KEY` in the dashboard.
+  (database survives deploys), sets `NODE_ENV/TRUST_PROXY/DB_PATH`, and
+  auto-deploys on push. Contact submissions from the Vercel site use the
+  Vercel Function, not a Render API URL.
 - **Railway / Fly.io / VPS** — use the included `Dockerfile`; mount a volume at
   `/app/data` (or set `DB_PATH`) or community messages reset on restart.
 
@@ -133,8 +144,10 @@ Local production check: `npm run build && NODE_ENV=production npm start`
 
 | Var | Purpose |
 | --- | ------- |
-| `BREVO_API_KEY` | Required for contact form email delivery. Without it `/api/contact` responds 503. |
+| `BREVO_API_KEY` | Required server-side for contact email delivery. Without it `/api/contact` responds 503. |
 | `CONTACT_EMAIL` | Where contact messages are delivered. |
+| `CONTACT_FROM_EMAIL` | Optional verified Brevo sender; defaults to `CONTACT_EMAIL`. |
+| `ALLOWED_ORIGINS` | Comma-separated origins permitted by the existing Node backend's production CORS policy. |
 | `PORT` | Port for the Node server (default 3001). |
 | `NODE_ENV` | Set to `production` on the host: serves `dist/` + enforces CORS/CSP. |
 | `TRUST_PROXY` | Set to `1` behind Render/nginx so rate limits key on real client IPs. |
@@ -146,12 +159,14 @@ see `docs/DATABASE.md`.
 ### Brevo configuration
 
 1. Create a free Brevo account and generate a Transactional API key at
-   https://app.brevo.com/settings/keys/api — set it as `BREVO_API_KEY`.
+   https://app.brevo.com/settings/keys/api — set it as the server-side
+   `BREVO_API_KEY` in Vercel (and `.env` for local development).
 2. Brevo only accepts senders validated inside the account. Register with
    `CONTACT_EMAIL` and it is used as the sender automatically, or validate a
    different sender there and set the optional `CONTACT_FROM_EMAIL`.
-3. Run `node server/index.js` (behind a process manager such as systemd or
-   pm2) and point the proxy at it.
+3. Configure `CONTACT_EMAIL` and, if needed, `CONTACT_FROM_EMAIL` as unprefixed
+   Vercel server environment variables, then redeploy. These values and the
+   Brevo key are never bundled into frontend JavaScript.
 
 ### Production SEO checklist
 

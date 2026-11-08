@@ -1,9 +1,7 @@
-# Render deployment — single Node service: serves dist/, API, and WebSocket
-# from one origin with persistent storage and health checks.
+# Render deployment — existing Node service for the Developer Community API
+# and WebSocket, with persistent storage and health checks.
 #
 # Prerequisite: this repo on GitHub → Render → New Blueprint → pick repo.
-# You must provide BREVO_API_KEY in the Render dashboard (marked sync: false
-# below) — Render will prompt for it on first deploy.
 services:
   - type: web
     name: tejas-portfolio
@@ -19,13 +17,9 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 3001
       - key: TRUST_PROXY
         value: "1"
+      - key: ALLOWED_ORIGINS
+        value: https://tejas-portfolio-hazel.vercel.app
       - key: DB_PATH
         value: /var/data/community.db
-      - key: CONTACT_EMAIL
-        value: tejaskhadse900@gmail.com
-      - key: BREVO_API_KEY
-        sync: false
