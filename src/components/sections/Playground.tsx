@@ -141,7 +141,7 @@ export function Playground() {
               <button type="button" className="playground-button" onClick={toggleFullscreen}>
                 Fullscreen
               </button>
-              <button type="button" className="playground-button" onClick={() => setActiveId('geometry')}>
+              <button type="button" className="playground-button" onClick={() => setActiveId('earth')}>
                 Exit Computer
               </button>
               <span className="playground-computer-status" aria-live="polite">

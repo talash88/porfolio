@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-export type PlaygroundPresetId = 'geometry' | 'particles' | 'torus' | 'network' | 'grid' | 'shapes' | 'retro-computer'
+export type PlaygroundPresetId = 'earth' | 'particles' | 'torus' | 'network' | 'grid' | 'shapes' | 'retro-computer'
 
 export type RetroComputerAction = 'power' | 'reset' | 'disk' | 'drive' | 'games' | 'terminal'
 export type RetroComputerMode = 'terminal' | 'games' | 'shooter' | 'racing' | 'explorer'
@@ -19,7 +19,7 @@ export interface PlaygroundPreset {
 }
 
 export const playgroundPresets: PlaygroundPreset[] = [
-  { id: 'geometry', label: 'Abstract 3D Geometry', description: 'Layered mesh forms and luminous motion.' },
+  { id: 'earth', label: 'Interactive 3D Earth', description: 'A rotating Earth with day and night, drifting clouds, and atmospheric glow.' },
   { id: 'particles', label: 'Animated Particle Universe', description: 'Nebulous particles drifting through space.' },
   { id: 'torus', label: 'Interactive Torus / Rings', description: 'Responsive rings with pointer-driven movement.' },
   { id: 'network', label: '3D Neural Network', description: 'Connected nodes tracing a digital signal.' },
@@ -39,6 +39,8 @@ export interface SceneRuntime {
   group: THREE.Group
   update: (t: number, dt: number) => void
   dispose: () => void
+  render?: () => void
+  resize?: (width: number, height: number) => void
   interactive?: boolean
   pointerDown?: (event: PointerEvent) => void
   pointerMove?: (event: PointerEvent) => void
@@ -100,8 +102,23 @@ export class PlaygroundSceneManager {
     this.scene.add(accent)
 
     this.scene.add(this.root)
+    // Test hook (harmless in prod): lets Playwright assert scene state.
+    ;(window as unknown as Record<string, unknown>).__playgroundManager = this
     this.ro = new ResizeObserver(() => this.resize())
     this.ro.observe(this.element.parentElement ?? this.element)
+    /* The playground canvas is a normal in-flow element, so an
+       IntersectionObserver can pause the loop while it is scrolled out of
+       view (the retro computer's simulation simply freezes and resumes). */
+    this.io = new IntersectionObserver(
+      (entries) => this.setRunning(entries[0]?.isIntersecting ?? false),
+      { rootMargin: '80px' },
+    )
+    this.io.observe(this.element)
+    document.addEventListener('visibilitychange', this.onVisibility)
+    /* Context loss (GPU reset, mobile background reclaim) must be recoverable:
+       preventDefault asks the browser to restore, and the loop resumes after. */
+    this.element.addEventListener('webglcontextlost', this.onContextLost)
+    this.element.addEventListener('webglcontextrestored', this.onContextRestored)
     window.addEventListener('pointermove', this.onPointerMove, { passive: true })
     this.element.addEventListener('pointerdown', this.onCanvasPointerDown)
     this.element.addEventListener('pointermove', this.onCanvasPointerMove)
@@ -109,7 +126,6 @@ export class PlaygroundSceneManager {
     this.element.addEventListener('pointercancel', this.onCanvasPointerUp)
     this.element.addEventListener('wheel', this.onCanvasWheel, { passive: false })
 
-    this.setPreset('geometry')
     if (this.reduced) {
       this.renderFrame()
     } else {
@@ -132,13 +148,46 @@ export class PlaygroundSceneManager {
     this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
   }
 
+  /* --- render-loop pause state (off-screen / hidden tab / lost context) --- */
+  private running = true
+  private io: IntersectionObserver
+
+  private onVisibility = () => this.setRunning(!document.hidden)
+
+  private onContextLost = (event: Event) => {
+    event.preventDefault()
+    this.setRunning(false)
+  }
+
+  private onContextRestored = () => {
+    if (this.disposed) return
+    this.setRunning(true)
+  }
+
+  private setRunning(should: boolean) {
+    if (this.disposed) return
+    const allowed = should && !document.hidden
+    if (allowed && !this.running) {
+      this.running = true
+      this.clock.getDelta() // drop the paused interval so time doesn't jump
+      this.startLoop()
+    } else if (!allowed && this.running) {
+      this.running = false
+      cancelAnimationFrame(this.raf)
+    }
+  }
+
   private renderFrame() {
     if (this.disposed) return
-    this.renderer.render(this.scene, this.camera)
+    if (this.current?.render) {
+      this.current.render()
+    } else {
+      this.renderer.render(this.scene, this.camera)
+    }
   }
 
   private startLoop = () => {
-    if (this.disposed) return
+    if (!this.running || this.disposed) return
     this.raf = requestAnimationFrame(this.startLoop)
     const dt = Math.min(this.clock.getDelta(), 0.04)
     const t = this.clock.elapsedTime
@@ -183,12 +232,43 @@ export class PlaygroundSceneManager {
     this.camera.fov = 40
     this.camera.lookAt(0, 0, 0)
     this.camera.updateProjectionMatrix()
+
+    if (presetId === 'earth') {
+      const container = this.element.parentElement
+      if (!container) {
+        console.error('Interactive 3D Earth failed to load: the playground stage is unavailable.')
+        return
+      }
+
+      import('./earthPreset')
+        .then(({ createEarthPreset }) =>
+          createEarthPreset({
+            container,
+            inputCanvas: this.element,
+            reducedMotion: this.reduced,
+          }),
+        )
+        .then((preset) => {
+          if (this.disposed || request !== this.presetRequest) {
+            preset.dispose()
+            return
+          }
+          this.installPreset(preset)
+        })
+        .catch((error: unknown) => {
+          if (!this.disposed && request === this.presetRequest) {
+            console.error('Interactive 3D Earth failed to load:', error)
+          }
+        })
+      return
+    }
+
     this.installPreset(this.createPreset(presetId))
   }
 
   private installPreset(preset: SceneRuntime) {
     this.current = preset
-    this.root.add(preset.group)
+    if (!preset.render) this.root.add(preset.group)
     if (this.reduced) this.renderFrame()
   }
 
@@ -228,8 +308,8 @@ export class PlaygroundSceneManager {
 
   private createPreset(presetId: PlaygroundPresetId): SceneRuntime {
     switch (presetId) {
-      case 'geometry':
-        return this.createAbstractGeometry()
+      case 'earth':
+        throw new Error('Interactive 3D Earth uses its dedicated renderer.')
       case 'particles':
         return this.createParticleUniverse()
       case 'torus':
@@ -241,93 +321,7 @@ export class PlaygroundSceneManager {
       case 'shapes':
         return this.createFloatingShapes()
       case 'retro-computer':
-        return this.createAbstractGeometry()
-      default:
-        return this.createAbstractGeometry()
-    }
-  }
-
-  private createAbstractGeometry(): SceneRuntime {
-    const group = new THREE.Group()
-    const shapes: THREE.Object3D[] = []
-
-    /* Preset-local lighting (children of this group, so no other preset is
-       affected). The shared scene lights alone leave faces turned away from
-       the point light near-black — balanced key/fill/rim + soft ambient keep
-       every surface illuminated without flattening the depth. */
-    const keyLight = new THREE.DirectionalLight('#9be7ff', 1.4)
-    keyLight.position.set(4, 5, 6)
-    const fillLight = new THREE.DirectionalLight('#7dd3fc', 0.6)
-    fillLight.position.set(-5, -3, 4)
-    const rimLight = new THREE.DirectionalLight('#c084fc', 1.0)
-    rimLight.position.set(-3, 4, -6)
-    const ambient = new THREE.AmbientLight('#223a5e', 0.55)
-    group.add(keyLight, fillLight, rimLight, ambient)
-
-    /* Opaque knot: the previous transparent/0.9-opacity version blended the
-       dark background through the tube wherever it passed behind itself,
-       producing shadow-like dark bands. Opaque geometry renders clean and
-       solid while the emissive keeps the luminous look. */
-    const material = new THREE.MeshPhysicalMaterial({
-      color: '#8be9fd',
-      emissive: '#3f8efc',
-      emissiveIntensity: 0.6,
-      metalness: 0.25,
-      roughness: 0.3,
-    })
-
-    const knot = new THREE.Mesh(new THREE.TorusKnotGeometry(1.3, 0.38, 180, 32), material)
-    const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(1.15, 1), new THREE.MeshStandardMaterial({
-      color: '#c084fc',
-      emissive: '#4f46e5',
-      emissiveIntensity: 0.7,
-      /* Lower metalness + higher roughness than before: with no environment
-         map, high metalness reflected the dark void (dark patches) and the
-         shared point light clipped to a blown-out hotspot. */
-      metalness: 0.25,
-      roughness: 0.35,
-    }))
-    /* Glassy shell: light tint at very low opacity with depthWrite disabled —
-       the old near-black film (#0f172a @ 0.16) rendered as floating dark
-       facets and dimmed everything behind it. depthWrite off prevents the
-       transparent shell from creating depth artifacts against itself. */
-    const shell = new THREE.Mesh(new THREE.OctahedronGeometry(2.3, 0), new THREE.MeshStandardMaterial({
-      color: '#67e8f9',
-      emissive: '#67e8f9',
-      emissiveIntensity: 0.12,
-      transparent: true,
-      opacity: 0.08,
-      roughness: 0.45,
-      metalness: 0.1,
-      depthWrite: false,
-    }))
-
-    group.add(knot, orb, shell)
-    shapes.push(knot, orb, shell)
-
-    return {
-      group,
-      update: (t) => {
-        const phase = t * 0.9
-        group.rotation.x = phase * 0.6 + this.pointer.y * 0.8
-        group.rotation.y = phase * 0.8 + this.pointer.x * 0.7
-        for (let i = 0; i < shapes.length; i++) {
-          const s = shapes[i] as THREE.Mesh
-          s.position.y = Math.sin(t * 1.4 + i) * 0.5
-        }
-      },
-      dispose: () => {
-        shapes.forEach((shape) => {
-          const mesh = shape as THREE.Mesh
-          mesh.geometry.dispose()
-          const material = mesh.material
-          if (Array.isArray(material)) {
-            material.forEach((entry) => entry.dispose())
-          } else {
-            material.dispose()
-          }
-        })
-      },
+        throw new Error('Virtual Retro Computer is initialized separately.')
     }
   }
 
@@ -636,12 +630,18 @@ export class PlaygroundSceneManager {
     this.renderer.setSize(width, height, false)
     this.camera.aspect = width / height
     this.camera.updateProjectionMatrix()
+    this.current?.resize?.(width, height)
     this.renderFrame()
   }
 
   dispose() {
     this.disposed = true
     cancelAnimationFrame(this.raf)
+    this.ro.disconnect()
+    this.io.disconnect()
+    document.removeEventListener('visibilitychange', this.onVisibility)
+    this.element.removeEventListener('webglcontextlost', this.onContextLost)
+    this.element.removeEventListener('webglcontextrestored', this.onContextRestored)
     window.removeEventListener('pointermove', this.onPointerMove)
     this.element.removeEventListener('pointerdown', this.onCanvasPointerDown)
     this.element.removeEventListener('pointermove', this.onCanvasPointerMove)

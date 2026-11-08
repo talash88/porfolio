@@ -86,6 +86,15 @@ function SceneBackground() {
 }
 
 export default function App() {
+  // SPA deep links: the browser's one-shot fragment navigation runs before the
+  // sections mount, so loading `/#contact` directly would land at the top and
+  // never retry. Re-run the scroll once the sections exist.
+  useEffect(() => {
+    const id = window.location.hash.slice(1)
+    if (!id) return
+    document.getElementById(id)?.scrollIntoView()
+  }, [])
+
   // Scroll-reveal: one observer handles every [data-reveal] element;
   // CSS honors prefers-reduced-motion, so nothing animates when it shouldn't.
   useEffect(() => {

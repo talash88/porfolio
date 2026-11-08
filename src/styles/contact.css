@@ -32,9 +32,12 @@
   font-size: var(--text-sm);
   font-weight: 600;
   background: var(--surface);
+  box-shadow: var(--card-shadow);
   transition:
     border-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-med) var(--ease-out),
+    box-shadow var(--dur-med) var(--ease-out),
     translate var(--dur-fast) var(--ease-out);
 }
 .social svg {
@@ -58,7 +61,7 @@ a.social:hover svg {
   font-size: var(--text-xs);
 }
 .social--placeholder {
-  opacity: 0.55;
+  opacity: var(--social-placeholder-opacity);
   cursor: help;
 }
 
@@ -67,9 +70,14 @@ a.social:hover svg {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, var(--surface) 0%, var(--bg-elevated) 100%);
+  box-shadow: var(--card-shadow);
   padding: var(--space-5);
   display: grid;
   gap: var(--space-3);
+  transition:
+    background-color var(--dur-med) var(--ease-out),
+    border-color var(--dur-med) var(--ease-out),
+    box-shadow var(--dur-med) var(--ease-out);
 }
 .field {
   display: grid;
@@ -91,13 +99,16 @@ a.social:hover svg {
   border-radius: var(--radius-md);
   color: var(--text);
   font-size: var(--text-base);
-  transition: border-color var(--dur-fast) var(--ease-out);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-med) var(--ease-out),
+    color var(--dur-med) var(--ease-out);
   resize: vertical;
 }
 .field input::placeholder,
 .field textarea::placeholder {
   color: var(--text-faint);
-  opacity: 0.7;
+  opacity: var(--field-placeholder-opacity);
 }
 .field input:focus,
 .field textarea:focus {
@@ -106,7 +117,7 @@ a.social:hover svg {
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
 .field-error {
-  color: #ffb35c;
+  color: var(--field-error);
   font-size: var(--text-sm);
 }
 .form-foot {

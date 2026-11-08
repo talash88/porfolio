@@ -6,6 +6,27 @@
     <title>Tejas — Developer Portfolio</title>
     <meta name="description" content="Personal developer portfolio of Tejas — projects, skills and learning, built with React, TypeScript and Three.js." />
     <meta name="theme-color" content="#0a0b0e" />
+    <script>
+      (() => {
+        let savedTheme = null
+        try {
+          savedTheme = window.localStorage.getItem('tejas-portfolio-theme')
+        } catch {
+          console.warn('Theme preference storage is unavailable; using the system preference.')
+        }
+        const theme =
+          savedTheme === 'light' || savedTheme === 'dark'
+            ? savedTheme
+            : window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark'
+        document.documentElement.dataset.theme = theme
+        document.querySelector('meta[name="theme-color"]')?.setAttribute(
+          'content',
+          theme === 'light' ? '#f4f2eb' : '#0a0b0e',
+        )
+      })()
+    </script>
     <meta name="robots" content="index,follow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 

@@ -10,12 +10,16 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
+  box-shadow: var(--card-shadow);
   padding: var(--space-4);
   display: grid;
   gap: var(--space-4);
   align-content: start;
   transition:
     border-color var(--dur-med) var(--ease-out),
+    background-color var(--dur-med) var(--ease-out),
+    color var(--dur-med) var(--ease-out),
+    box-shadow var(--dur-med) var(--ease-out),
     transform var(--dur-med) var(--ease-out);
 }
 .skill-group:hover {

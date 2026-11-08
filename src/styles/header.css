@@ -72,6 +72,42 @@
   color: inherit;
 }
 
+/* Theme switch */
+.theme-toggle {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 58%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.theme-toggle svg {
+  transition: transform var(--dur-med) var(--ease-out);
+}
+.theme-toggle:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+.theme-toggle:hover svg {
+  transform: rotate(18deg);
+}
+.theme-toggle:active {
+  transform: translateY(0) scale(0.96);
+}
+
 /* toggle (mobile) */
 .nav-toggle {
   display: none;

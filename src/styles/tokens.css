@@ -6,8 +6,100 @@
  * The Three.js scene reads accents from --accent-* so art and code match.
  * ---------------------------------------------------------------------------
  */
+@property --bg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0a0b0e;
+}
+@property --bg-elevated {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #101218;
+}
+@property --surface {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #14161d;
+}
+@property --surface-2 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #1a1d26;
+}
+@property --line {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(233, 236, 245, 0.09);
+}
+@property --line-strong {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(233, 236, 245, 0.18);
+}
+@property --text {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #eceef4;
+}
+@property --text-muted {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #9ba1ae;
+}
+@property --text-faint {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #6d7280;
+}
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #c9f24f;
+}
+@property --accent-strong {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #dcff5e;
+}
+@property --accent-ink {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #101208;
+}
+@property --accent-dim {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(201, 242, 79, 0.14);
+}
+@property --social-placeholder-opacity {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0.55;
+}
+@property --field-placeholder-opacity {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0.7;
+}
+
 :root {
   color-scheme: dark;
+  transition:
+    --bg var(--dur-med) var(--ease-out),
+    --bg-elevated var(--dur-med) var(--ease-out),
+    --surface var(--dur-med) var(--ease-out),
+    --surface-2 var(--dur-med) var(--ease-out),
+    --line var(--dur-med) var(--ease-out),
+    --line-strong var(--dur-med) var(--ease-out),
+    --text var(--dur-med) var(--ease-out),
+    --text-muted var(--dur-med) var(--ease-out),
+    --text-faint var(--dur-med) var(--ease-out),
+    --accent var(--dur-med) var(--ease-out),
+    --accent-strong var(--dur-med) var(--ease-out),
+    --accent-ink var(--dur-med) var(--ease-out),
+    --accent-dim var(--dur-med) var(--ease-out),
+    --social-placeholder-opacity var(--dur-med) var(--ease-out),
+    --field-placeholder-opacity var(--dur-med) var(--ease-out);
 
   /* --- ink background ramp (cool near-black → lifted surfaces) --- */
   --bg: #0a0b0e;
@@ -65,4 +157,175 @@
   --dur-fast: 160ms;
   --dur-med: 380ms;
   --dur-slow: 720ms;
+
+  --card-shadow: none;
+  --portrait-border: rgba(103, 232, 249, 0.4);
+  --field-error: #ffb35c;
+  --social-placeholder-opacity: 0.55;
+  --field-placeholder-opacity: 0.7;
+
+  --scene-overlay:
+    linear-gradient(180deg, rgba(10, 11, 14, 0.34) 0%, rgba(10, 11, 14, 0.22) 18%, rgba(10, 11, 14, 0.18) 48%, rgba(10, 11, 14, 0.54) 100%),
+    radial-gradient(circle at top, rgba(13, 18, 27, 0.12) 0%, rgba(10, 11, 14, 0.28) 36%, rgba(10, 11, 14, 0.7) 100%);
+  --hero-scrim:
+    radial-gradient(ellipse 70% 60% at 60% 40%, transparent 0%, transparent 55%, rgba(10, 11, 14, 0.86) 100%),
+    linear-gradient(to bottom, rgba(10, 11, 14, 0.84) 0%, rgba(10, 11, 14, 0.2) 18%, rgba(10, 11, 14, 0.12) 70%, rgba(10, 11, 14, 0.9) 98%),
+    linear-gradient(to right, rgba(10, 11, 14, 0.82) 0%, rgba(10, 11, 14, 0) 45%);
+  --hero-scrim-mobile:
+    radial-gradient(ellipse 90% 55% at 55% 62%, transparent 0%, transparent 45%, var(--bg) 92%),
+    linear-gradient(to bottom, var(--bg) 0%, transparent 30%, transparent 62%, var(--bg) 94%);
+
+  --playground-shell-bg: linear-gradient(180deg, rgba(9, 12, 18, 0.72), rgba(9, 12, 18, 0.95));
+  --playground-shell-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --playground-button-bg: rgba(15, 23, 42, 0.6);
+  --playground-fullscreen-bg: #070a12;
+
+  --community-panel-bg: rgba(8, 18, 32, 0.78);
+  --community-panel-border: rgba(112, 208, 255, 0.22);
+  --community-panel-shadow: 0 18px 40px rgba(2, 6, 23, 0.45);
+  --community-divider: rgba(148, 163, 184, 0.18);
+  --community-divider-subtle: rgba(148, 163, 184, 0.12);
+  --community-chip-bg: rgba(59, 130, 246, 0.18);
+  --community-chip-text: #c7f0ff;
+  --community-hover-bg: rgba(34, 211, 238, 0.08);
+  --community-hover-border: rgba(103, 232, 249, 0.32);
+  --community-heading: #e2f4ff;
+  --community-body: rgba(203, 213, 225, 0.8);
+  --community-summary: rgba(203, 213, 225, 0.88);
+  --community-label: rgba(148, 163, 184, 0.92);
+  --community-status-text: #dbeafe;
+  --community-meta: rgba(186, 230, 253, 0.8);
+  --community-muted: rgba(148, 163, 184, 0.82);
+  --community-member-meta: rgba(148, 163, 184, 0.9);
+  --community-faint: rgba(191, 219, 254, 0.76);
+  --community-faint-soft: rgba(191, 219, 254, 0.72);
+  --community-actions: rgba(191, 219, 254, 0.7);
+  --community-surface: rgba(11, 18, 29, 0.35);
+  --community-message-bg: rgba(14, 27, 43, 0.9);
+  --community-message-border: rgba(148, 163, 184, 0.12);
+  --community-message-self-bg: rgba(17, 34, 52, 0.9);
+  --community-message-self-border: rgba(103, 232, 249, 0.3);
+  --community-message-text: rgba(226, 232, 240, 0.96);
+  --community-reply-border: rgba(125, 211, 252, 0.5);
+  --community-reply-bg: rgba(125, 211, 252, 0.08);
+  --community-reply-text: rgba(186, 230, 253, 0.9);
+  --community-accent: #7dd3fc;
+  --community-accent-strong: #bae6fd;
+  --community-accent-soft: rgba(34, 211, 238, 0.08);
+  --community-accent-bg: rgba(34, 211, 238, 0.16);
+  --community-accent-hover: rgba(34, 211, 238, 0.24);
+  --community-accent-border: rgba(103, 232, 249, 0.4);
+  --community-accent-text: #c7f0ff;
+  --community-accent-shadow: 0 10px 24px rgba(2, 6, 23, 0.45);
+  --community-unread-color: #67e8f9;
+  --community-unread-shadow: 0 0 18px rgba(103, 232, 249, 0.7);
+  --community-history-border: rgba(125, 211, 252, 0.28);
+  --community-input-bg: rgba(8, 15, 26, 0.75);
+  --community-input-border: rgba(125, 211, 252, 0.22);
+  --community-input-text: #e2f4ff;
+  --community-join-bg: rgba(8, 15, 26, 0.7);
+  --community-join-border: rgba(125, 211, 252, 0.2);
+  --community-join-text: #ecfeff;
+  --community-join-label: rgba(191, 219, 254, 0.8);
+  --community-avatar-bg: linear-gradient(135deg, rgba(34, 211, 238, 0.32), rgba(59, 130, 246, 0.28));
+  --community-avatar-text: #e0f2fe;
+  --community-online-shadow: 0 0 0 4px rgba(52, 211, 153, 0.12);
+  --community-note: rgba(191, 219, 254, 0.85);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f4f2eb;
+  --bg-elevated: #ebe8de;
+  --surface: #fbfaf5;
+  --surface-2: #f1efe7;
+  --line: rgba(48, 53, 39, 0.11);
+  --line-strong: rgba(48, 53, 39, 0.21);
+  --text: #25271f;
+  --text-muted: #565c50;
+  --text-faint: #686e61;
+  --accent: #5f7415;
+  --accent-strong: #52680f;
+  --accent-ink: #fffef6;
+  --accent-dim: rgba(101, 123, 22, 0.13);
+
+  --card-shadow: 0 16px 38px rgba(48, 49, 37, 0.075);
+  --portrait-border: rgba(91, 119, 35, 0.32);
+  --field-error: #a4471d;
+  --social-placeholder-opacity: 1;
+  --field-placeholder-opacity: 1;
+
+  --scene-overlay:
+    linear-gradient(180deg, rgba(244, 242, 235, 0.18) 0%, rgba(244, 242, 235, 0.36) 18%, rgba(244, 242, 235, 0.62) 48%, rgba(244, 242, 235, 0.82) 100%),
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.24) 0%, rgba(244, 242, 235, 0.5) 36%, rgba(244, 242, 235, 0.7) 100%);
+  --hero-scrim:
+    radial-gradient(ellipse 70% 60% at 60% 40%, transparent 0%, transparent 55%, rgba(244, 242, 235, 0.84) 100%),
+    linear-gradient(to bottom, rgba(244, 242, 235, 0.86) 0%, rgba(244, 242, 235, 0.28) 18%, rgba(244, 242, 235, 0.18) 70%, rgba(244, 242, 235, 0.9) 98%),
+    linear-gradient(to right, rgba(244, 242, 235, 0.88) 0%, rgba(244, 242, 235, 0) 45%);
+  --hero-scrim-mobile:
+    radial-gradient(ellipse 90% 55% at 55% 62%, transparent 0%, transparent 45%, var(--bg) 92%),
+    linear-gradient(to bottom, var(--bg) 0%, rgba(244, 242, 235, 0.24) 30%, rgba(244, 242, 235, 0.18) 62%, var(--bg) 94%);
+
+  --playground-shell-bg: linear-gradient(180deg, var(--surface) 0%, var(--bg-elevated) 100%);
+  --playground-shell-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82), var(--card-shadow);
+  --playground-button-bg: var(--surface-2);
+  --playground-fullscreen-bg: var(--bg-elevated);
+
+  --community-panel-bg: rgba(251, 250, 245, 0.94);
+  --community-panel-border: rgba(67, 82, 61, 0.17);
+  --community-panel-shadow: 0 18px 40px rgba(48, 49, 37, 0.085);
+  --community-divider: rgba(59, 68, 51, 0.13);
+  --community-divider-subtle: rgba(59, 68, 51, 0.09);
+  --community-chip-bg: rgba(66, 119, 111, 0.12);
+  --community-chip-text: #315d56;
+  --community-hover-bg: rgba(102, 143, 67, 0.09);
+  --community-hover-border: rgba(84, 119, 42, 0.28);
+  --community-heading: #2d382f;
+  --community-body: #5b6258;
+  --community-summary: #555d53;
+  --community-label: #687166;
+  --community-status-text: #4a594d;
+  --community-meta: #667064;
+  --community-muted: #60685e;
+  --community-member-meta: #686e61;
+  --community-faint: #60685e;
+  --community-faint-soft: #687065;
+  --community-actions: #6a7165;
+  --community-surface: rgba(236, 237, 228, 0.82);
+  --community-message-bg: #f7f6f0;
+  --community-message-border: rgba(59, 68, 51, 0.12);
+  --community-message-self-bg: #e8eee4;
+  --community-message-self-border: rgba(82, 125, 103, 0.28);
+  --community-message-text: #333a32;
+  --community-reply-border: rgba(75, 126, 109, 0.45);
+  --community-reply-bg: rgba(100, 146, 122, 0.1);
+  --community-reply-text: #4a6557;
+  --community-accent: #467465;
+  --community-accent-strong: #355f52;
+  --community-accent-soft: rgba(79, 132, 111, 0.09);
+  --community-accent-bg: rgba(79, 132, 111, 0.13);
+  --community-accent-hover: rgba(79, 132, 111, 0.19);
+  --community-accent-border: rgba(67, 119, 98, 0.28);
+  --community-accent-text: #315e50;
+  --community-accent-shadow: 0 10px 24px rgba(48, 49, 37, 0.12);
+  --community-unread-color: #4b806c;
+  --community-unread-shadow: 0 0 18px rgba(75, 128, 108, 0.22);
+  --community-history-border: rgba(76, 115, 96, 0.28);
+  --community-input-bg: #fffef9;
+  --community-input-border: rgba(67, 82, 61, 0.2);
+  --community-input-text: #30362e;
+  --community-join-bg: #fffef9;
+  --community-join-border: rgba(67, 82, 61, 0.2);
+  --community-join-text: #30362e;
+  --community-join-label: #5f685d;
+  --community-avatar-bg: linear-gradient(135deg, rgba(101, 151, 129, 0.28), rgba(127, 153, 104, 0.24));
+  --community-avatar-text: #35594b;
+  --community-online-shadow: 0 0 0 4px rgba(52, 140, 101, 0.12);
+  --community-note: #61695f;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    transition: none;
+  }
 }

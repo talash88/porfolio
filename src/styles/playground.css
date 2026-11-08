@@ -8,9 +8,13 @@
   position: relative;
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
-  background: linear-gradient(180deg, rgba(9, 12, 18, 0.72), rgba(9, 12, 18, 0.95));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: var(--playground-shell-bg);
+  box-shadow: var(--playground-shell-shadow);
   overflow: hidden;
+  transition:
+    background var(--dur-med) var(--ease-out),
+    border-color var(--dur-med) var(--ease-out),
+    box-shadow var(--dur-med) var(--ease-out);
 }
 
 .playground-toolbar {
@@ -23,7 +27,7 @@
 .playground-button {
   appearance: none;
   border: 1px solid var(--line-strong);
-  background: rgba(15, 23, 42, 0.6);
+  background: var(--playground-button-bg);
   color: var(--text-muted);
   border-radius: var(--radius-pill);
   padding: 0.6rem 0.9rem;
@@ -68,6 +72,16 @@
   cursor: grabbing;
 }
 
+.playground-earth-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .playground-caption {
   padding: 0 1rem 1rem;
   color: var(--text-muted);
@@ -109,7 +123,7 @@
   grid-template-rows: auto minmax(320px, 1fr) auto auto;
   overflow: auto;
   padding: 1rem;
-  background: #070a12;
+  background: var(--playground-fullscreen-bg);
 }
 
 .playground-shell:fullscreen .playground-stage,

@@ -14,7 +14,7 @@
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: 50%;
-  border: 1px solid rgba(103, 232, 249, 0.4);
+  border: 1px solid var(--portrait-border);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
 }
@@ -43,9 +43,14 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, var(--surface) 0%, var(--bg-elevated) 100%);
+  box-shadow: var(--card-shadow);
   padding: var(--space-4);
   display: grid;
   gap: var(--space-3);
+  transition:
+    background-color var(--dur-med) var(--ease-out),
+    border-color var(--dur-med) var(--ease-out),
+    box-shadow var(--dur-med) var(--ease-out);
 }
 .about-facts-label {
   font-size: var(--text-xs);

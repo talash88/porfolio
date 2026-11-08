@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -k -n vite,api -c cyan,magenta \"vite\" \"node server/index.js\"",
     "dev:server": "node server/index.js",
-    "dev:full": "concurrently \"npm run dev\" \"npm run dev:server\"",
+    "dev:full": "concurrently -k -n vite,api -c cyan,magenta \"vite\" \"node server/index.js\"",
     "start": "node server/index.js",
     "typecheck": "tsc -b",
     "build": "tsc -b && vite build",

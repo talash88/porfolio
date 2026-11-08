@@ -40,13 +40,13 @@ body {
   height: 100%;
   display: block;
   background: var(--bg);
+  transition: background-color var(--dur-slow) var(--ease-out);
 }
 .site-scene-overlay {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(180deg, rgba(10, 11, 14, 0.34) 0%, rgba(10, 11, 14, 0.22) 18%, rgba(10, 11, 14, 0.18) 48%, rgba(10, 11, 14, 0.54) 100%),
-    radial-gradient(circle at top, rgba(13, 18, 27, 0.12) 0%, rgba(10, 11, 14, 0.28) 36%, rgba(10, 11, 14, 0.7) 100%);
+  background: var(--scene-overlay);
+  transition: background var(--dur-slow) var(--ease-out);
 }
 .site-header,
 .site-main,

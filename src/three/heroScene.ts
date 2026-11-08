@@ -153,6 +153,11 @@ export class HeroScene {
     )
     this.io.observe(canvas)
     document.addEventListener('visibilitychange', this.onVisibility)
+    /* A lost WebGL context (GPU reset, mobile background reclaim) would
+       otherwise freeze the scene forever — preventDefault tells the browser
+       we want it back, and restore resumes the loop. */
+    canvas.addEventListener('webglcontextlost', this.onContextLost)
+    canvas.addEventListener('webglcontextrestored', this.onContextRestored)
     // window-level listeners: the copy container overlays the canvas, so the
     // canvas itself would miss most pointer events.
     window.addEventListener('pointermove', this.onPointerMove, { passive: true })
@@ -170,6 +175,20 @@ export class HeroScene {
   }
 
   private onVisibility = () => this.setRunning(!document.hidden)
+
+  private onContextLost = (event: Event) => {
+    event.preventDefault()
+    this.setRunning(false)
+  }
+
+  private onContextRestored = () => {
+    if (this.disposed) return
+    if (this.reduced) {
+      this.renderer.render(this.scene, this.camera)
+    } else {
+      this.setRunning(true)
+    }
+  }
 
   private dragging = false
   private lastX = 0
@@ -313,6 +332,8 @@ export class HeroScene {
     this.ro.disconnect()
     this.io.disconnect()
     document.removeEventListener('visibilitychange', this.onVisibility)
+    this.canvas.removeEventListener('webglcontextlost', this.onContextLost)
+    this.canvas.removeEventListener('webglcontextrestored', this.onContextRestored)
     window.removeEventListener('pointermove', this.onPointerMove)
     window.removeEventListener('pointerdown', this.onPointerDown)
     window.removeEventListener('pointerup', this.onPointerUp)
