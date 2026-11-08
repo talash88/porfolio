@@ -83,7 +83,7 @@ const MESSAGE_COLUMNS =
   'id, channel, display_name, message, created_at, user_id, profile, reply_to, reply_preview'
 
 const CHANNELS = [
-  { id: 'developer-community', name: 'Developer Community', description: 'One shared group for updates, ideas, and developer conversations.' },
+  { id: 'developer-community', name: 'Developer Community', description: 'One shared group for developers, students, and builders to ask questions, share ideas, and connect in real time.' },
 ]
 
 const sanitise = (value) => String(value ?? '').trim()
@@ -98,6 +98,16 @@ const sanitizeText = (input) => {
   const value = String(input ?? '').replace(/[<>]/g, '')
   return value.trim().replace(/\s+/g, ' ')
 }
+
+/* Escape values interpolated into the HTML email body so visitor input can
+   never inject markup into the message (the text version needs no escaping). */
+const escapeHtml = (value) =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 
 const normaliseGroup = (value) => {
   const candidate = sanitise(value)
@@ -276,40 +286,57 @@ app.post('/api/contact', async (req, res) => {
     }
 
     /* Brevo Transactional Email API — official endpoint:
-       POST https://api.brevo.com/v3/smtp/email with the api-key header. */
-    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': BREVO_API_KEY,
-        'content-type': 'application/json',
-        accept: 'application/json',
-      },
-      body: JSON.stringify({
-        sender: { name: 'Portfolio Contact', email: CONTACT_FROM_EMAIL },
-        to: [{ email: CONTACT_EMAIL }],
-        replyTo: { email },
-        subject: `[Portfolio] ${subject}`,
-        textContent: [
-          `Name: ${name}`,
-          `Email: ${email}`,
-          `Subject: ${subject}`,
-          '',
-          'Message:',
-          message,
-        ].join('\n'),
-        htmlContent: `
-          <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.6;">
-            <h2 style="margin-bottom: 12px;">New portfolio message</h2>
-            <p><strong>Name:</strong> ${name}</p>
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Subject:</strong> ${subject}</p>
-            <div style="margin-top: 20px; padding: 16px; background: #f3f4f6; border-radius: 10px;">
-              <p style="white-space: pre-wrap; margin: 0;">${message.replace(/\n/g, '<br />')}</p>
+       POST https://api.brevo.com/v3/smtp/email with the api-key header.
+       AbortSignal.timeout bounds the request so a hung provider connection
+       surfaces as an error instead of holding the client request open. */
+    let brevoResponse
+    try {
+      brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        signal: AbortSignal.timeout(15_000),
+        headers: {
+          'api-key': BREVO_API_KEY,
+          'content-type': 'application/json',
+          accept: 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: 'Portfolio Contact', email: CONTACT_FROM_EMAIL },
+          to: [{ email: CONTACT_EMAIL }],
+          replyTo: { email },
+          subject: `[Portfolio] ${subject}`,
+          textContent: [
+            `Name: ${name}`,
+            `Email: ${email}`,
+            `Subject: ${subject}`,
+            '',
+            'Message:',
+            message,
+          ].join('\n'),
+          htmlContent: `
+            <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.6;">
+              <h2 style="margin-bottom: 12px;">New portfolio message</h2>
+              <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+              <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+              <p><strong>Subject:</strong> ${escapeHtml(subject)}</p>
+              <div style="margin-top: 20px; padding: 16px; background: #f3f4f6; border-radius: 10px;">
+                <p style="white-space: pre-wrap; margin: 0;">${escapeHtml(message).replace(/\n/g, '<br />')}</p>
+              </div>
             </div>
-          </div>
-        `,
-      }),
-    })
+          `,
+        }),
+      })
+    } catch (fetchError) {
+      /* Timeouts and network failures land here — the provider was not
+         reached, so this must be reported as an error, never a success. */
+      const timedOut = fetchError?.name === 'TimeoutError' || fetchError?.name === 'AbortError'
+      console.error('Brevo request failed:', timedOut ? 'timed out after 15s' : 'network error')
+      return res.status(504).json({
+        success: false,
+        error: timedOut
+          ? 'The email provider took too long to respond. Please try again later.'
+          : 'Could not reach the email provider. Please try again later.',
+      })
+    }
 
     if (!brevoResponse.ok) {
       /* Never log the request or headers — status code only, so the API key

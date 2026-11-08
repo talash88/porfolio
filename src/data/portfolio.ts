@@ -280,9 +280,9 @@ export const socials: SocialLink[] = [
   },
   {
     label: 'X',
-    href: 'https://x.com/TEJASKHADS63147',
+    href: 'https://x.com/_tejas_khadse',
     icon: 'x',
-    handle: '@TEJASKHADS63147',
+    handle: '@_tejas_khadse',
   },
 ]
 
@@ -310,6 +310,8 @@ export const footer = {
 
 export const community = {
   name: 'Developer Community',
-  description: 'A single shared group for builders, students, and developers to discuss ideas, collaborate, and stay connected.',
+  tagline: 'Connect. Discuss. Learn. Grow Together.',
+  description:
+    'One shared group for developers, students, and builders to ask questions, share ideas, and connect in real time.',
   welcome: 'Join the community to share project updates, ask questions, and connect with others building in tech.',
 } as const

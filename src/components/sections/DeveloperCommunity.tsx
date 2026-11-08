@@ -229,8 +229,8 @@ export function DeveloperCommunity() {
       <div className="container community-shell">
         <div className="section-head community-head">
           <span className="section-eyebrow">Developer Community</span>
-          <h2 id="community-title">Connect. Discuss. Learn. Grow Together.</h2>
-          <p className="lead">One shared group for developers, students, and builders to ask questions, share ideas, and connect in real time.</p>
+          <h2 id="community-title">{community.tagline}</h2>
+          <p className="lead">{community.description}</p>
         </div>
 
         <div className="community-layout">

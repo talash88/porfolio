@@ -37,9 +37,13 @@ function ContactForm() {
   const formRef = useRef<HTMLFormElement>(null)
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState(contact.formNote)
+  /* Ref guard against duplicate submissions: while a request is in flight,
+     any extra submit event (double-click, Enter key) is ignored. */
+  const submittingRef = useRef(false)
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (submittingRef.current) return
     const form = e.currentTarget
     const data = new FormData(form)
     const payload = {
@@ -72,6 +76,7 @@ function ContactForm() {
 
     setStatus('loading')
     setMessage('Sending...')
+    submittingRef.current = true
 
     try {
       const response = await fetch('/api/contact', {
@@ -98,6 +103,8 @@ function ContactForm() {
     } catch {
       setStatus('error')
       setMessage('The message could not be sent. Please try again in a moment.')
+    } finally {
+      submittingRef.current = false
     }
   }
 
