@@ -5,6 +5,9 @@
   "functions": {
     "api/contact.js": {
       "maxDuration": 30
+    },
+    "api/community/*.js": {
+      "maxDuration": 15
     }
   }
 }

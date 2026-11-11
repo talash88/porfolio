@@ -1,4 +1,10 @@
 import { isSameOriginRequest, processContactSubmission } from '../server/contact-email.js'
+import { checkRateLimit, clientIpFrom } from '../server/rate-limit.js'
+
+/* 5 submissions per IP per 15 minutes — mirrors the Express budget so local
+   development and production enforce the same spam budget. */
+const WINDOW_MS = 15 * 60 * 1000
+const MAX_PER_WINDOW = 5
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -9,6 +15,15 @@ export default async function handler(req, res) {
       success: false,
       code: 'METHOD_NOT_ALLOWED',
       error: 'Method not allowed.',
+    })
+  }
+
+  const limit = checkRateLimit(clientIpFrom(req), { windowMs: WINDOW_MS, max: MAX_PER_WINDOW })
+  if (!limit.allowed) {
+    return res.status(429).json({
+      success: false,
+      code: 'RATE_LIMITED',
+      error: 'Too many contact form submissions. Please try again later.',
     })
   }
 

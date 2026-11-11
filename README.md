@@ -68,8 +68,8 @@ damped inertia, and drifts with scroll. Engineering guarantees:
 Harnesses under `scripts/` use Playwright (`npx playwright install chromium` first):
 
 ```bash
-npm test                          # Contact email helper and Vercel handler
-node scripts/shot.mjs            # viewport screenshots + console-error audit
+npm test                          # Contact email twice-email flow, community API validation/rate-limit/moderation tests
+node scripts/shot.mjs http://localhost:3001 shots  # viewport screenshots + console-error audit (production server)
 node scripts/test-hero.mjs       # scene reactivity, drag, fallbacks, fps
 ```
 
@@ -93,17 +93,16 @@ chat server (`server/index.js`) that owns two route families:
 
 | Route | What it does |
 | ----- | ------------ |
-| `/api/contact` | Contact form → Brevo email (Vercel Function in production; local Express proxy in development) |
+| `/api/contact` | Contact form → Brevo email — owner notification **and visitor acknowledgement** (Vercel Function in production; local Express proxy in development) |
 | `/api/health` | Contact API health check |
-| `/api/community/*` | Developer Community group chat (SQLite persistence) |
-| `/ws` | Same-origin WebSocket for live community chat + presence |
+| `/api/community/*` | Developer Community group chat → Supabase Postgres (single public group) + rate limiting + moderation |
+| Realtime | Supabase Realtime `postgres_changes` + presence — no WebSocket server, works on Vercel serverless |
 
-On Vercel, `api/contact.js` and `api/health.js` are same-origin Node.js
-Functions. The local `npm run dev` workflow continues to proxy these paths to
-the Express routes in `server/index.js`; both use the same contact-email helper.
-The Developer Community API and WebSocket remain on their existing Node
-backend and are not moved by this setup. Brevo keys belong only in server-side
-environment variables, never in `VITE_*` variables.
+On Vercel, `api/contact.js`, `api/health.js` and `api/community/*.js` are same-origin Node.js
+Functions. `server/community-api.js` holds the shared community logic used by both the local
+Express server and the Vercel functions, so local development exercises the exact production
+data layer. The optional WebSocket server in `server/index.js` remains for the legacy local
+SQLite community fallback but is not needed for production.
 
 Example nginx locations:
 
@@ -119,23 +118,41 @@ location /ws   { proxy_pass http://127.0.0.1:3001; proxy_http_version 1.1;
 
 Deploy the Vercel frontend and Contact API together:
 
-- **Vercel** — `vercel.json` builds `dist/` and configures the Node.js contact
-  function duration. Root-level `api/` functions deploy alongside the static
-  Vite output. Set `BREVO_API_KEY`, `CONTACT_EMAIL`, and (if different from the
-  recipient) `CONTACT_FROM_EMAIL` in the Vercel project's server environment.
-  The contact endpoint is same-origin and validates the request Origin against
-  the request host.
+- **Vercel** — `vercel.json` builds `dist/` and configures Node.js function
+  durations. Root-level `api/` functions deploy alongside the static Vite
+  output. Server environment variables: `BREVO_API_KEY`, `CONTACT_EMAIL`,
+  (optional) `CONTACT_FROM_EMAIL`, plus the Supabase set for the community:
+  `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`,
+  `SUPABASE_SERVICE_ROLE_KEY`. The contact endpoint is same-origin and
+  validates the request Origin against the request host.
 
-The existing Node service remains available for the Developer Community and
-WebSocket routes:
+### Supabase setup (Developer Community — one public group)
 
-- **Render (recommended)** — `render.yaml` blueprint is ready: New Blueprint →
-  pick the GitHub repo. It mounts a 1 GiB persistent disk at `/var/data`
+1. Create a free project at https://supabase.com (no card required).
+2. Dashboard → SQL Editor → paste all of `supabase/schema.sql` → **Run**.
+   This creates `community_messages` + `community_reports`, enables read-only
+   RLS for the anon key, and adds the tables to the realtime publication.
+3. Project Settings → API: copy the Project URL and the `anon`/`public` key
+   into the `VITE_*` variables, and the `service_role` key into
+   `SUPABASE_SERVICE_ROLE_KEY` (secret — server-side only, never committed,
+   never exposed to the browser).
+4. Writes happen only through the same-origin /api/community functions; the
+   browser realtime subscription is read-only. Messages with 3+ member
+   reports are hidden automatically; every insert prunes rows older than 90
+   days (retention).
+
+Free-tier limits (2026): 500 MB database, 200 concurrent realtime
+connections, 2M realtime messages/month. The project pauses after one week
+of complete inactivity — a few chat messages per week keep it awake.
+
+The previous Render blueprint (`render.yaml`) below remains available as an
+optional fallback deployment of the legacy WebSocket community:
+
+- **Render** — `render.yaml` blueprint is ready: New Blueprint → pick the
+  GitHub repo. It mounts a 1 GiB persistent disk at `/var/data`
   (database survives deploys), sets `NODE_ENV/TRUST_PROXY/DB_PATH`, and
-  auto-deploys on push. Contact submissions from the Vercel site use the
-  Vercel Function, not a Render API URL.
-- **Railway / Fly.io / VPS** — use the included `Dockerfile`; mount a volume at
-  `/app/data` (or set `DB_PATH`) or community messages reset on restart.
+  auto-deploys on push. Requires a paid Starter instance to keep history
+  persistent and avoid spin-down.
 
 Local production check: `npm run build && NODE_ENV=production npm start`
 (then open http://localhost:3001 — the full site, API, and WebSocket).
@@ -147,11 +164,13 @@ Local production check: `npm run build && NODE_ENV=production npm start`
 | `BREVO_API_KEY` | Required server-side for contact email delivery. Without it `/api/contact` responds 503. |
 | `CONTACT_EMAIL` | Where contact messages are delivered. |
 | `CONTACT_FROM_EMAIL` | Optional verified Brevo sender; defaults to `CONTACT_EMAIL`. |
-| `ALLOWED_ORIGINS` | Comma-separated origins permitted by the existing Node backend's production CORS policy. |
+| `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Public Supabase project coordinates for the community chat (read-only via RLS — safe to expose). |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Secret server-side Supabase credentials used by `api/community/*` to write messages/reports. |
+| `ALLOWED_ORIGINS` | Comma-separated origins permitted by the Node backend's production CORS policy. |
 | `PORT` | Port for the Node server (default 3001). |
 | `NODE_ENV` | Set to `production` on the host: serves `dist/` + enforces CORS/CSP. |
 | `TRUST_PROXY` | Set to `1` behind Render/nginx so rate limits key on real client IPs. |
-| `DB_PATH` | Optional override for the SQLite file (Render disk: `/var/data/community.db`). |
+| `DB_PATH` | Optional override for the SQLite file (legacy fallback community only). |
 
 `npm run backup` / `npm run restore <file>` gives WAL-safe database backups —
 see `docs/DATABASE.md`.
@@ -167,6 +186,10 @@ see `docs/DATABASE.md`.
 3. Configure `CONTACT_EMAIL` and, if needed, `CONTACT_FROM_EMAIL` as unprefixed
    Vercel server environment variables, then redeploy. These values and the
    Brevo key are never bundled into frontend JavaScript.
+4. Every accepted submission also sends an acknowledgement email to the
+   visitor (Reply-To = your inbox), so replying to the acknowledgement also
+   reaches you. If that second delivery ever fails, the visitor's submission
+   still succeeds.
 
 ### Production SEO checklist
 

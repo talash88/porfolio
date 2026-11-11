@@ -90,9 +90,9 @@ test('Vercel contact route returns a safe error when its server key is missing',
 })
 
 test('sends the configured sender, recipient, reply-to, and timestamp to Brevo', async () => {
-  let request
+  const requests = []
   globalThis.fetch = async (url, options) => {
-    request = { url, options }
+    requests.push({ url, options })
     return new Response(JSON.stringify({ messageId: 'provider-acceptance-id' }), {
       status: 201,
       headers: { 'content-type': 'application/json' },
@@ -105,16 +105,42 @@ test('sends the configured sender, recipient, reply-to, and timestamp to Brevo',
     CONTACT_FROM_EMAIL: 'verified@example.com',
   })
 
-  const sent = JSON.parse(request.options.body)
+  const [ownerEmail, acknowledgement] = requests.map((entry) => JSON.parse(entry.options.body))
+  assert.equal(requests.length, 2)
   assert.equal(result.status, 200)
   assert.equal(result.body.accepted, true)
-  assert.equal(request.url, 'https://api.brevo.com/v3/smtp/email')
-  assert.equal(request.options.headers['api-key'], 'test-key-not-a-real-credential')
-  assert.deepEqual(sent.sender, { name: 'Portfolio Contact', email: 'verified@example.com' })
-  assert.deepEqual(sent.to, [{ email: 'owner@example.com' }])
-  assert.deepEqual(sent.replyTo, { email: validPayload.email })
-  assert.match(sent.textContent, /Submitted: .+ \(UTC\)/)
-  assert.match(sent.htmlContent, /<time datetime="/)
+  assert.equal(result.body.acknowledged, true)
+  assert.equal(requests[0].url, 'https://api.brevo.com/v3/smtp/email')
+  assert.equal(requests[1].url, 'https://api.brevo.com/v3/smtp/email')
+  assert.equal(requests[0].options.headers['api-key'], 'test-key-not-a-real-credential')
+  assert.deepEqual(ownerEmail.sender, { name: 'Portfolio Contact', email: 'verified@example.com' })
+  assert.deepEqual(ownerEmail.to, [{ email: 'owner@example.com' }])
+  assert.deepEqual(ownerEmail.replyTo, { email: validPayload.email })
+  assert.match(ownerEmail.textContent, /Submitted: .+ \(UTC\)/)
+  assert.match(ownerEmail.htmlContent, /<time datetime="/)
+  /* Acknowledgement goes to the visitor, replies to it reach the owner. */
+  assert.deepEqual(acknowledgement.to, [{ email: validPayload.email }])
+  assert.deepEqual(acknowledgement.replyTo, { email: 'owner@example.com' })
+})
+
+test('a failed acknowledgement never fails the visitor submission', async () => {
+  const requests = []
+  globalThis.fetch = async (url, _options) => {
+    const index = requests.push({ url }) - 1
+    return new Response(
+      index === 0 ? JSON.stringify({ messageId: 'ok' }) : '{"message":"rejected"}',
+      { status: index === 0 ? 201 : 500, headers: { 'content-type': 'application/json' } },
+    )
+  }
+
+  const result = await processContactSubmission(validPayload, {
+    BREVO_API_KEY: 'test-key-not-a-real-credential',
+    CONTACT_EMAIL: 'owner@example.com',
+  })
+
+  assert.equal(result.status, 200)
+  assert.equal(result.body.accepted, true)
+  assert.equal(result.body.acknowledged, false)
 })
 
 test('validates same-origin Vercel requests and rejects cross-origin requests', async () => {

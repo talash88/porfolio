@@ -10,6 +10,12 @@ import dotenv from 'dotenv'
 import Database from 'better-sqlite3'
 import { WebSocketServer } from 'ws'
 import { processContactSubmission } from './contact-email.js'
+import {
+  communityConfigured,
+  createCommunityMessage,
+  createCommunityReport,
+  getCommunityMessages,
+} from './community-api.js'
 
 dotenv.config()
 
@@ -169,6 +175,25 @@ app.use(
 )
 
 app.use(express.json({ limit: '1mb' }))
+
+/* When Supabase is configured (SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY),
+ * community routes use the same Supabase-backed logic as the Vercel
+ * functions — so local development exercises the exact production data
+ * layer. Without Supabase env vars, the original SQLite routes below stay
+ * unchanged and keep working. */
+const communitySupabaseEnabled = communityConfigured()
+if (communitySupabaseEnabled) {
+  const communityHandler = (processor) => async (req, res) => {
+    const result = await processor(req.body ?? {}, process.env, req.socket.remoteAddress || 'unknown')
+    return res.status(result.status).json(result.body)
+  }
+  app.get('/api/community/messages', async (_req, res) => {
+    const result = await getCommunityMessages(process.env)
+    return res.status(result.status).json(result.body)
+  })
+  app.post('/api/community/messages', communityHandler(createCommunityMessage))
+  app.post('/api/community/report', communityHandler(createCommunityReport))
+}
 
 app.get('/api/health', (_req, res) => {
   res.json({

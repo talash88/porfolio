@@ -1,7 +1,14 @@
 # Database
 
-The portfolio uses **SQLite (better-sqlite3)** in WAL mode, stored at
-`data/community.db`. It backs the Developer Community messages and reports.
+The portfolio has two storage layers, selected by configuration:
+
+1. **Developer Community in production — Supabase Postgres** (see
+   `supabase/schema.sql` and the README). One public group
+   (`developer-community`), realtime delivery via Supabase Realtime,
+   read-only RLS for the browser.
+2. **Local/optional fallback — SQLite (better-sqlite3)** in WAL mode at
+   `data/community.db`, backing the legacy local community chat and REST
+   routes in `server/index.js`. This section documents that layer.
 
 SQLite is the right choice for this project because:
 

@@ -18,6 +18,56 @@ const response = (status, code, error) => ({
   body: { success: false, code, error },
 })
 
+/* Acknowledgement email: confirms receipt to the visitor. Sent with the same
+   verified Brevo sender, Reply-To points to the site owner so a visitor
+   replying to it reaches Tejas. Best-effort only — the visitor's submission
+   remains successful if this delivery fails. */
+async function sendAcknowledgement({ apiKey, sender, recipientEmail, visitorName, visitorEmail, subject, message }) {
+  try {
+    const ackSubject = `[Portfolio] We received your message — ${subject}`
+    const ackIntro = `Hi ${visitorName}, thank you for reaching out through Tejas's portfolio.`
+    const ackOutro = 'Your message has been delivered to my inbox. I will reply to you at this email address.'
+    const ackSignature = '— Tejas Khadse'
+
+    const acknowledgement = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      signal: AbortSignal.timeout(15_000),
+      headers: {
+        'api-key': apiKey,
+        'content-type': 'application/json',
+        accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: 'Portfolio Contact', email: sender },
+        to: [{ email: visitorEmail }],
+        replyTo: { email: recipientEmail },
+        subject: ackSubject,
+        textContent: [ackIntro, '', 'Your message:', '', `Subject: ${subject}`, message, '', ackOutro, '', ackSignature].join('\n'),
+        htmlContent: `
+          <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.6;">
+            <p>${escapeHtml(ackIntro)}</p>
+            <div style="margin: 16px 0; padding: 16px; background: #f3f4f6; border-radius: 10px;">
+              <p style="margin: 0 0 8px;"><strong>${escapeHtml(subject)}</strong></p>
+              <p style="white-space: pre-wrap; margin: 0;">${escapeHtml(message).replace(/\n/g, '<br />')}</p>
+            </div>
+            <p>${escapeHtml(ackOutro)}</p>
+            <p style="color: #6b7280;">${escapeHtml(ackSignature)}</p>
+          </div>
+        `,
+      }),
+    })
+
+    if (!acknowledgement.ok) {
+      console.error(`Brevo acknowledgement not accepted: HTTP ${acknowledgement.status}`)
+      return false
+    }
+    return true
+  } catch (error) {
+    console.error('Acknowledgement delivery failed:', error?.name ?? 'unknown')
+    return false
+  }
+}
+
 export async function processContactSubmission(payload, env = process.env) {
   try {
     const name = sanitise(payload?.name)
@@ -171,12 +221,25 @@ export async function processContactSubmission(payload, env = process.env) {
       )
     }
 
+    const acknowledgementSent = await sendAcknowledgement({
+      apiKey,
+      sender,
+      recipientEmail: recipient,
+      visitorName: name,
+      visitorEmail: email,
+      subject,
+      message,
+    })
+
     return {
       status: 200,
       body: {
         success: true,
         accepted: true,
-        message: 'Your message was accepted by the email service.',
+        acknowledged: acknowledgementSent,
+        message: acknowledgementSent
+          ? 'Your message was accepted by the email service. A confirmation copy is on its way to you.'
+          : 'Your message was accepted by the email service.',
       },
     }
   } catch (error) {

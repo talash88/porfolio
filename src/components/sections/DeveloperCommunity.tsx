@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
+import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
 import { community } from '../../data/portfolio'
+import {
+  COMMUNITY_GROUP,
+  COMMUNITY_REALTIME_CHANNEL,
+  getStoredIdentity,
+  getStoredUserId,
+  isCommunityConfigured,
+  loadCommunityClient,
+  storeIdentity,
+} from '../../lib/communityClient'
 import '../../styles/community.css'
 
 interface CommunityMessage {
@@ -19,12 +29,18 @@ interface CommunityMember {
   profile: string
 }
 
-/* Same-origin WebSocket: works behind any reverse proxy and upgrades to
-   wss:// automatically on HTTPS. Requires /ws to be proxied to the API
-   server in production (see README) and by the Vite dev proxy. */
-const wsUrl = () => {
-  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${protocol}://${window.location.host}/ws`
+/* Realtime architecture (Vercel-compatible — no WebSocket server needed):
+ *  - history:  GET  /api/community/messages        (same-origin function)
+ *  - send:     POST /api/community/messages        (server-validated, rate-limited)
+ *  - live:     Supabase Realtime postgres_changes INSERT on community_messages
+ *  - presence: Supabase Realtime presence (online members list)
+ * Writes never happen from the browser; the anon key is read-only via RLS. */
+
+/** Supabase subscribe callback status → the UI's three-state connection dot. */
+function mapChannelStatus(status: string): 'connecting' | 'connected' | 'disconnected' {
+  if (status === 'SUBSCRIBED') return 'connected'
+  if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') return 'disconnected'
+  return 'connecting'
 }
 
 export function DeveloperCommunity() {
@@ -37,91 +53,154 @@ export function DeveloperCommunity() {
   const [joined, setJoined] = useState(false)
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting')
   const [notice, setNotice] = useState<string>(community.welcome)
-  const [viewerId, setViewerId] = useState<string | null>(null)
+  const [viewerId] = useState<string>(getStoredUserId())
   const [unread, setUnread] = useState(0)
   const [historyState, setHistoryState] = useState<'loading' | 'ready' | 'error'>('loading')
-  const wsRef = useRef<WebSocket | null>(null)
   const feedRef = useRef<HTMLDivElement | null>(null)
   const prevCountRef = useRef(0)
 
-  const pendingJoinRef = useRef<{ display_name: string; profile: string } | null>(null)
-  const joinedRef = useRef(false)
-  const profileRef = useRef(profile)
-  profileRef.current = profile
-
-  // Refs keep reconnect/rejoin logic free of stale render closures.
+  // Refs keep reconnect/track/send logic free of stale render closures.
   const displayNameRef = useRef(displayName)
   displayNameRef.current = displayName
+  const profileRef = useRef(profile)
+  profileRef.current = profile
+  const joinedRef = useRef(false)
+  const channelRef = useRef<RealtimeChannel | null>(null)
+  const connectingRef = useRef(false)
+  const reconnectTimerRef = useRef<number | null>(null)
+  const unmountRef = useRef(false)
 
-  const sendJoin = (socket: WebSocket) => {
-    socket.send(JSON.stringify({ type: 'join', group: 'developer-community', display_name: displayNameRef.current.trim(), profile: profileRef.current.trim() || 'Student developer' }))
+  /* Upsert a stored row (from realtime INSERT or the POST result), replacing
+   * a matching optimistic temp message so nothing is ever duplicated and the
+   * canonical reply_preview from the server wins. */
+  const mergeStoredMessage = (row: CommunityMessage) => {
+    const stored: CommunityMessage = {
+      id: String(row.id),
+      display_name: String(row.display_name ?? ''),
+      message: String(row.message ?? ''),
+      created_at: String(row.created_at ?? new Date().toISOString()),
+      user_id: row.user_id ? String(row.user_id) : '',
+      profile: row.profile ? String(row.profile) : undefined,
+      reply_to: row.reply_to ? String(row.reply_to) : null,
+      reply_preview: row.reply_preview ? String(row.reply_preview) : null,
+    }
+    setMessages((current) => {
+      const byFields = current.findIndex((m) => m.id.startsWith('tmp-') && m.user_id === stored.user_id && m.message === stored.message)
+      if (byFields !== -1) {
+        const next = [...current]
+        next[byFields] = stored
+        return next
+      }
+      const byId = current.findIndex((m) => m.id === stored.id)
+      if (byId !== -1) {
+        const next = [...current]
+        next[byId] = stored
+        return next
+      }
+      return [...current, stored].slice(-200)
+    })
   }
 
-  const connect = () => {
-    if (wsRef.current) return
+  const removeMessage = (id: string) => {
+    setMessages((current) => current.filter((message) => message.id !== id))
+  }
 
-    const socket = new WebSocket(wsUrl())
-    wsRef.current = socket
-
-    socket.addEventListener('open', () => {
-      setStatus('connected')
-      if (pendingJoinRef.current) {
-        socket.send(JSON.stringify({ type: 'join', group: 'developer-community', ...pendingJoinRef.current }))
-      } else if (joinedRef.current) {
-        sendJoin(socket)
-        setNotice('Connection restored.')
-      } else {
-        // Fresh visitor (or post-reconnect): keep the status dot and the
-        // notice consistent while the connection is up.
-        setNotice(community.welcome)
-      }
+  const trackPresence = (channel: RealtimeChannel) => {
+    void channel.track({
+      display_name: displayNameRef.current.trim() || 'Guest',
+      profile: profileRef.current.trim() || 'Student developer',
     })
+  }
 
-    socket.addEventListener('message', (event) => {
-      try {
-        const payload = JSON.parse(event.data)
+  const scheduleReconnect = () => {
+    if (reconnectTimerRef.current !== null || unmountRef.current) return
+    reconnectTimerRef.current = window.setTimeout(() => {
+      reconnectTimerRef.current = null
+      void connectRealtime()
+    }, 2000)
+  }
 
-        if (payload.type === 'history') {
-          setMessages(payload.messages ?? [])
-          if (payload.you) setViewerId(payload.you)
-          setHistoryState('ready')
-          return
-        }
+  const connectRealtime = async () => {
+    if (unmountRef.current || connectingRef.current || !isCommunityConfigured()) return
+    connectingRef.current = true
 
-        if (payload.type === 'message') {
-          setMessages((current) => [...current, payload.message].slice(-200))
-          return
-        }
-
-        if (payload.type === 'presence') {
-          setMembers(payload.members ?? [])
-          return
-        }
-
-        if (payload.type === 'error') {
-          setNotice(payload.message || 'Something went wrong.')
-        }
-      } catch {
-        setNotice('The community connection returned an unexpected response.')
-      }
-    })
-
-    socket.addEventListener('close', () => {
+    let client: SupabaseClient
+    try {
+      client = await loadCommunityClient()
+    } catch (error) {
+      console.error('Community realtime unavailable:', error instanceof Error ? error.message : 'unknown')
       setStatus('disconnected')
-      setNotice('Connection lost. Reconnecting...')
-      wsRef.current = null
-      setTimeout(() => {
-        if (!wsRef.current) connect()
-      }, 2000)
-    })
+      connectingRef.current = false
+      scheduleReconnect()
+      return
+    }
 
-    socket.addEventListener('error', () => {
-      setStatus('disconnected')
-      setNotice('Unable to connect to the community right now.')
+    if (unmountRef.current) {
+      connectingRef.current = false
+      return
+    }
+    if (channelRef.current) {
+      void client.removeChannel(channelRef.current)
+      channelRef.current = null
+    }
+
+    const channel = client.channel(COMMUNITY_REALTIME_CHANNEL, {
+      config: { presence: { key: viewerId } },
     })
+    channelRef.current = channel
+
+    channel
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_messages', filter: `channel=eq.${COMMUNITY_GROUP}` }, (payload) => {
+        const row = payload.new as unknown as CommunityMessage | null
+        if (row?.id) mergeStoredMessage(row)
+      })
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState() as Record<string, Array<{ display_name?: string; profile?: string }>>
+        const online: CommunityMember[] = []
+        for (const [id, presences] of Object.entries(state)) {
+          const presence = presences[0]
+          if (presence?.display_name) {
+            online.push({ id, display_name: presence.display_name, profile: presence.profile || 'Developer' })
+          }
+        }
+        setMembers(online)
+      })
+      .subscribe((rawStatus: string) => {
+        connectingRef.current = false
+        const mapped = mapChannelStatus(rawStatus)
+        if (mapped === 'connected') {
+          setStatus('connected')
+          if (joinedRef.current) {
+            trackPresence(channel)
+            setNotice('Connection restored.')
+          }
+        } else if (unmountRef.current) {
+          return
+        } else if (mapped === 'disconnected') {
+          setStatus('disconnected')
+          setNotice('Connection lost. Reconnecting...')
+          scheduleReconnect()
+        }
+      })
   }
 
   useEffect(() => {
+    if (!isCommunityConfigured()) {
+      console.error('Developer Community: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable live chat.')
+      setStatus('disconnected')
+      setNotice('Live chat is not connected yet. Please check back soon.')
+      return
+    }
+
+    /* Persistent identity: returning visitors are already joined. */
+    const identity = getStoredIdentity()
+    if (identity) {
+      setDisplayName(identity.displayName)
+      setProfile(identity.profile)
+      setJoined(true)
+      joinedRef.current = true
+    }
+
     fetch('/api/community/messages?group=developer-community')
       .then((response) => {
         if (!response.ok) throw new Error(`history request failed: ${response.status}`)
@@ -133,11 +212,21 @@ export function DeveloperCommunity() {
       })
       .catch(() => setHistoryState('error'))
 
-    connect()
+    void connectRealtime()
 
     return () => {
-      wsRef.current?.close()
-      wsRef.current = null
+      unmountRef.current = true
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
+      }
+      const channel = channelRef.current
+      channelRef.current = null
+      if (channel) {
+        void loadCommunityClient()
+          .then((client) => client.removeChannel(channel))
+          .catch(() => {})
+      }
     }
   }, [])
 
@@ -172,42 +261,80 @@ export function DeveloperCommunity() {
       return
     }
 
-    const joinPayload = { display_name: trimmedName, profile: profile.trim() || 'Student developer' }
+    const trimmedProfile = profile.trim() || 'Student developer'
+    storeIdentity(trimmedName, trimmedProfile)
     setJoined(true)
     joinedRef.current = true
-    setNotice(`Joined ${community.name}. Start the conversation.`)
 
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      // Buffer the join: it is sent automatically once the socket opens.
-      pendingJoinRef.current = joinPayload
-      return
+    const channel = channelRef.current
+    if (channel && status === 'connected') {
+      // Push the updated identity (name/profile edit or fresh join).
+      void channel.track({ display_name: trimmedName, profile: trimmedProfile })
     }
-
-    pendingJoinRef.current = null
-    wsRef.current.send(JSON.stringify({ type: 'join', group: 'developer-community', ...joinPayload }))
+    setNotice(`Joined ${community.name}. Start the conversation.`)
   }
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const cleaned = draft.trim()
-    if (!cleaned || !joined || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
+    if (!cleaned || !joined || status !== 'connected') return
     if (cleaned.length > 500) {
       setNotice('Messages must be 500 characters or fewer.')
       return
     }
+    if (!isCommunityConfigured()) {
+      setNotice('Live chat is not connected yet. Please check back soon.')
+      return
+    }
 
-    wsRef.current.send(
-      JSON.stringify({
-        type: 'message',
-        group: 'developer-community',
-        message: cleaned,
-        reply_to: replyTo?.id ?? null,
-        reply_preview: replyTo?.message ?? null,
-      }),
-    )
+    const target = replyTo
+    const payload = {
+      display_name: displayNameRef.current.trim() || 'Guest',
+      profile: profileRef.current.trim() || 'Student developer',
+      user_id: viewerId,
+      message: cleaned,
+      reply_to: target?.id ?? null,
+    }
 
+    /* Optimistic append: the message appears instantly; the stored row
+     * (realtime echo or POST result) replaces the temp entry by fields. */
+    const tempId = `tmp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+    const optimistic: CommunityMessage = {
+      id: tempId,
+      display_name: payload.display_name,
+      message: cleaned,
+      created_at: new Date().toISOString(),
+      user_id: payload.user_id,
+      profile: payload.profile,
+      reply_to: payload.reply_to,
+      reply_preview: target ? `${target.display_name}: ${target.message}`.slice(0, 140) : null,
+    }
+    setMessages((current) => [...current, optimistic].slice(-200))
     setDraft('')
     setReplyTo(null)
     setNotice('Message sent.')
+
+    try {
+      const response = await fetch('/api/community/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15_000),
+      })
+      const result = (await response.json().catch(() => null)) as
+        | { success?: boolean; message?: CommunityMessage; error?: string }
+        | null
+
+      if (!response.ok || !result?.success) {
+        removeMessage(tempId)
+        setNotice(result?.error || 'Could not save your message. Please try again later.')
+        return
+      }
+      if (result.message) mergeStoredMessage(result.message)
+    } catch (error) {
+      removeMessage(tempId)
+      console.error('Community send failed:', error instanceof Error ? error.message : 'network error')
+      setNotice('Could not save your message. Please try again later.')
+    }
   }
 
   const handleReport = async (messageId: string) => {
